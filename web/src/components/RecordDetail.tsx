@@ -27,10 +27,12 @@ import { aiService } from '@/services/aiService'
 import { storageService } from '@/services/storageService'
 import { retryLinkMeta, isHttpUrl, prettyHost } from '@/services/linkPreviewService'
 import { describeRecurrence } from '@/lib/recurrence'
+import { isSnoozePending } from '@/lib/reminder-schedule'
 import { friendlyError } from '@/lib/unwrap'
 import RelatedRecords from './RelatedRecords'
 import LinkCover from './LinkCover'
 import RecurrenceField from './RecurrenceField'
+import SnoozeActions from './SnoozeActions'
 
 interface RecordDetailProps {
   record: InfoRecord | null
@@ -40,6 +42,13 @@ interface RecordDetailProps {
   onDeleted?: () => void
   /** 打开关联目标记录（替换当前详情）。 */
   onOpenRecord?: (record: InfoRecord) => void
+}
+
+/** ISO → 本地 HH:mm（用于「已推迟至」文案）；非法返回空串。 */
+function formatClock(iso: string): string {
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return ''
+  return new Date(ms).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function RecordDetail({ record, open, onClose, onChanged, onDeleted, onOpenRecord }: RecordDetailProps) {
@@ -56,6 +65,18 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
   const [recurrenceEdit, setRecurrenceEdit] = useState<RecurrenceRule | null>(null)
   const [retryingLink, setRetryingLink] = useState(false)
   const [linkMessage, setLinkMessage] = useState('')
+  /**
+   * 「已推迟至 …」Chip 的判定基准时刻（v2.13 R4）。
+   *
+   * 渲染里**不读 `Date.now()`**（否则纯函数与组件耦合、也不可测）；改为弹窗打开/切换记录/
+   * 记录被更新时刷新一次即可——推迟时间过了这个点 Chip 就不再显示（与 TodoPage 同口径）。
+   */
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!open) return
+    setNowMs(Date.now())
+  }, [open, record])
 
   useEffect(() => {
     if (record) {
@@ -215,6 +236,14 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
             {record.recurrenceParentId != null && (
               <Chip size="small" label={`由第 ${record.recurrenceParentId} 期生成`} variant="outlined" />
             )}
+            {isSnoozePending(record, nowMs) && (
+              <Chip
+                size="small"
+                color="info"
+                label={`已推迟至 ${formatClock(record.snoozedUntil ?? '')}`}
+                variant="outlined"
+              />
+            )}
           </Box>
 
           {summary && (
@@ -369,7 +398,12 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
           />
         </Stack>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
+        {record.type === 'todo' && record.todoStatus === 'pending' && !editing && (
+          <Box sx={{ flex: 1, minWidth: 260, display: 'flex', justifyContent: 'flex-start' }}>
+            <SnoozeActions record={record} onChanged={onChanged} />
+          </Box>
+        )}
         <Button onClick={onClose}>关闭</Button>
       </DialogActions>
     </Dialog>

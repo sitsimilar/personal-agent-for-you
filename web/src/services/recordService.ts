@@ -2,6 +2,7 @@ import { cloud } from '@/lib/cloud'
 import { unwrap } from '@/lib/unwrap'
 import type { RecordsRow } from '@/lib/database.types'
 import { normalizeRecurrenceRule } from '@/lib/recurrence'
+import { buildKeywordOrFilter, buildTsQuery, mergeRowsById } from '@/lib/search'
 import type {
   InfoRecord,
   LinkMeta,
@@ -22,6 +23,10 @@ const LIMITS = {
   streakSample: 500,
   relatedTargets: 500,
   reminderCandidates: 200,
+  /** v2.13 R5 第 4 步：14 天健康判定取最近 90 天更新过的记录。 */
+  updatedSince: 500,
+  /** v2.13 R6 .ics 导出上限（单次导出条数，防浏览器卡死）。 */
+  export: 1000,
 } as const
 
 /** JSONB 循环规则归一：脏数据（字符串/缺字段/非法 freq）统一为 null。 */
@@ -83,6 +88,10 @@ export function mapRecord(row: RecordsRow): InfoRecord {
     recurrenceParentId: row.recurrence_parent_id ?? null,
     recurrenceNextId: row.recurrence_next_id ?? null,
     linkMeta: toLinkMeta(row.link_meta),
+    // v2.13 新列：迁移未执行时行里没有这些键，全部回落默认值（旧行为不变）
+    someday: row.someday ?? false,
+    snoozedUntil: row.snoozed_until ?? null,
+    snoozeCount: row.snooze_count ?? 0,
     isDeleted: row.is_deleted,
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
@@ -90,15 +99,93 @@ export function mapRecord(row: RecordsRow): InfoRecord {
   }
 }
 
-/** 转义 ilike 通配符与 PostgREST 过滤结构字符，防止用户输入注入/破坏查询。 */
-function escapeLike(s: string): string {
-  return s.replace(/[%_\\,()"]/g, '\\$&')
+/**
+ * 检索链路用到的查询方法子集。
+ *
+ * 只声明用得到的方法，避免把 SDK 的复杂泛型签名泄漏到业务代码里；
+ * 收窄点集中在 `asKeywordQuery()` 一处。
+ */
+interface KeywordQuery {
+  or(filter: string): KeywordQuery
+  textSearch(
+    column: string,
+    query: string,
+    options: { type: 'websearch'; config: 'simple' },
+  ): KeywordQuery
+  order(column: string, options: { ascending: boolean }): KeywordQuery
+  limit(count: number): KeywordQuery
 }
 
-/** 构造 tags 数组 contains 过滤片段（tags.cs.{kw}）；关键词含数组字面量特殊字符时返回 null（跳过 tags 命中）。 */
-function csTagFilter(kw: string): string | null {
-  if (!kw || /[{}",\\]/.test(kw)) return null
-  return `tags.cs.{${kw}}`
+/** 把 SDK 查询构建器收窄为检索链路所需的方法子集（SDK 泛型签名过于宽泛，无法直接赋值）。 */
+function asKeywordQuery<T>(query: T): KeywordQuery {
+  return query as unknown as KeywordQuery
+}
+
+/** 执行一条查询并返回宽松包络（builder 是 thenable，类型上显式收窄一次）。 */
+async function execQuery(query: KeywordQuery): Promise<{ data: unknown; error: unknown }> {
+  const result = await (query as unknown as Promise<{ data: unknown; error: unknown }>)
+  return result ?? { data: null, error: null }
+}
+
+/**
+ * 关键词检索的唯一执行入口（v2.13 R1）：`search()` 与 `searchCandidates()` 共用。
+ *
+ * - q1（ilike/trgm 路径）：中文唯一可靠命中路径，也是全部单关键词行为的保底；
+ * - q2（search_tsv 叠加路径）：仅当**全部**关键词都是「长度 ≥ 2 的 ASCII 词」时执行，
+ *   结果按 id 与 q1 求并集，再按 `created_at DESC` 截断。
+ *   只要有一个词进不了 tsquery（CJK / 单字符 / 纯数字）就不发 q2 —— 否则并集会
+ *   把 q1 的「词间 AND」稀释成 OR（见 `lib/search.ts` 的 `buildTsQuery` 不变式）。
+ *
+ * q2 允许失败：迁移未执行时列不存在（42703）或后端不支持该语法，
+ * 此时**静默只用 q1**，保证迁移未执行时应用照常可用。
+ *
+ * @param build 每次调用返回一条**新的**基础查询（调用方负责 is_deleted / type / category / excludeId）
+ * @param kw 已 trim 的关键词（可为空 = 不加关键词过滤）
+ * @param limit 结果上限
+ */
+async function runKeywordQuery(
+  build: () => KeywordQuery,
+  kw: string,
+  limit: number,
+): Promise<RecordsRow[]> {
+  const filter = buildKeywordOrFilter(kw)
+
+  let primary = build()
+  if (filter) primary = primary.or(filter)
+  primary = primary.order('created_at', { ascending: false }).limit(limit)
+  const primaryResult = await execQuery(primary)
+  const primaryRows =
+    (unwrap({ data: primaryResult.data, error: primaryResult.error }) as RecordsRow[] | null) ?? []
+
+  const tsQuery = buildTsQuery(kw)
+  if (!tsQuery) return primaryRows
+
+  try {
+    let overlay = build()
+    overlay = overlay
+      .textSearch('search_tsv', tsQuery, { type: 'websearch', config: 'simple' })
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    const overlayResult = await execQuery(overlay)
+    // 有错（典型：迁移未执行 → 42703 列不存在）→ 静默跳过叠加路径
+    if (overlayResult.error) return primaryRows
+    const overlayRows = (overlayResult.data as RecordsRow[] | null) ?? []
+    return mergeRowsById(primaryRows, overlayRows, limit)
+  } catch {
+    return primaryRows
+  }
+}
+
+/**
+ * 应用关键词过滤（过滤器构造见 lib/search.ts）。
+ *
+ * 单关键词与 v2.12.2 同形；多关键词自动获得「词间 AND / 字段间 OR」语义。
+ * 空关键词不加任何过滤。本函数只服务**带分页/计数的**列表查询
+ * （`listRecords`）——它必须与 `count`、`range` 共存，故不做 tsvector 并集叠加。
+ */
+function applyKeyword<Q extends { or(filter: string): Q }>(query: Q, kw: string): Q {
+  const filter = buildKeywordOrFilter(kw)
+  return filter ? query.or(filter) : query
 }
 
 /** 解包并返回非空行数组；空结果抛统一中文错误。 */
@@ -108,12 +195,33 @@ function unwrapRows(result: { data: unknown; error: unknown }, msg = '无权限�
   return rows
 }
 
-/** 应用关键词过滤（title/content 模糊匹配 + tags 数组 contains，均已转义）。 */
-function applyKeyword<Q extends { or(filter: string): Q }>(query: Q, kw: string): Q {
-  const esc = escapeLike(kw)
-  const base = `title.ilike.%${esc}%,content.ilike.%${esc}%`
-  const tags = csTagFilter(kw)
-  return query.or(tags ? `${base},${tags}` : base)
+/**
+ * 该记录是否带 snooze 状态（为 false 时无需复位，避免多余写入）。
+ *
+ * @param record 领域记录
+ */
+function hasSnoozeState(record: InfoRecord): boolean {
+  return (record.snoozeCount ?? 0) > 0 || !!record.snoozedUntil
+}
+
+/**
+ * 复位 snooze 状态（v2.13 R4）：`snoozed_until = null`、`snooze_count = 0`。
+ *
+ * 调用时机：待办被完成、或用户改了 `remind_at`（视为新一轮提醒）。
+ * **best-effort**：迁移未执行时这两列不存在（42703），此时静默跳过，
+ * 保证「迁移未执行也必须能跑」——不让新特性拖垮完成待办/改提醒这些既有路径。
+ *
+ * @param id 记录 id
+ */
+async function resetSnoozeState(id: number): Promise<void> {
+  try {
+    await cloud.database
+      .from('records')
+      .update({ snoozed_until: null, snooze_count: 0 })
+      .eq('id', id)
+  } catch {
+    /* 列不存在（迁移未执行）或网络抖动：不影响主流程 */
+  }
 }
 
 /** 本地日期 key（避免 UTC toISOString 时区偏移导致跨天）。 */
@@ -161,6 +269,10 @@ function toSnake(input: RecordUpdateInput): Record<string, unknown> {
   if (input.recurrenceParentId !== undefined) fields.recurrence_parent_id = input.recurrenceParentId
   if (input.recurrenceNextId !== undefined) fields.recurrence_next_id = input.recurrenceNextId
   if (input.linkMeta !== undefined) fields.link_meta = input.linkMeta
+  // v2.13 新列：只在显式传入时写入（迁移未执行时用户不会触发这些字段，旧路径不受影响）
+  if (input.someday !== undefined) fields.someday = input.someday
+  if (input.snoozedUntil !== undefined) fields.snoozed_until = input.snoozedUntil
+  if (input.snoozeCount !== undefined) fields.snooze_count = input.snoozeCount
   return fields
 }
 
@@ -269,16 +381,26 @@ export const recordService = {
     return { weekNew, todoPending, streak }
   },
 
-  /** 关键词检索（title/content 模糊匹配 + tags 数组 contains，单查询）。 */
+  /**
+   * 关键词检索（v2.13 R1：ilike/trgm 主路径 + tsvector 叠加路径并集）。
+   *
+   * 返回字段、排序（`created_at DESC`）、上限（`LIMITS.search`）与 v2.12.2 一致；
+   * 语义变化只有两点：多词按 AND 处理、英文词额外获得 tsvector 召回。
+   * 空关键词行为不变（不加过滤，按时间倒序）。
+   *
+   * @param keyword 用户输入
+   * @param filter 可选的类型 / 分类限定
+   */
   async search(keyword: string, filter: { type?: RecordType; category?: string } = {}): Promise<InfoRecord[]> {
     const kw = keyword.trim()
-    let query = cloud.database.from('records').select('*').eq('is_deleted', false)
-    if (filter.type) query = query.eq('type', filter.type)
-    if (filter.category) query = query.eq('category', filter.category)
-    if (kw) query = applyKeyword(query, kw)
-    query = query.order('created_at', { ascending: false }).limit(LIMITS.search)
-    const { data, error } = await query
-    return ((unwrap({ data, error }) as RecordsRow[] | null) ?? []).map(mapRecord)
+    const build = (): KeywordQuery => {
+      let query = cloud.database.from('records').select('*').eq('is_deleted', false)
+      if (filter.type) query = query.eq('type', filter.type)
+      if (filter.category) query = query.eq('category', filter.category)
+      return asKeywordQuery(query)
+    }
+    const rows = await runKeywordQuery(build, kw, LIMITS.search)
+    return rows.map(mapRecord)
   },
 
   /** 按创建时间区间拉取记录（回顾用，未删除）。 */
@@ -333,7 +455,71 @@ export const recordService = {
       .update(fields)
       .eq('id', id)
       .select()
-    return mapRecord(unwrapRows({ data, error })[0])
+    const updated = mapRecord(unwrapRows({ data, error })[0])
+    // v2.13 R4：改了提醒时间 = 新一轮提醒，复位 snooze 状态
+    // （仅在确有 snooze 状态时才发请求，避免给常规编辑路径增加无谓写入）
+    if (input.remindAt !== undefined && hasSnoozeState(updated)) {
+      await resetSnoozeState(id)
+      // 复位是独立的一次写入，返回值需同步清掉 snooze 字段：
+      // 否则调用方（详情弹窗 / 列表）会继续显示「已推迟至 …」。
+      return { ...updated, snoozedUntil: null, snoozeCount: 0 }
+    }
+    return updated
+  },
+
+  /**
+   * 复位 snooze 状态（v2.13 R4，best-effort）。
+   * 供 `recurrenceService` 在完成待办（走的是条件更新，不经过 updateTodoStatus）时调用。
+   */
+  async resetSnoozeState(id: number): Promise<void> {
+    await resetSnoozeState(id)
+  },
+
+  /**
+   * 按 `updated_at` 取记录（v2.13 R5 第 4 步「项目健康检查」用）。
+   *
+   * @param sinceIso 起始时刻（ISO），通常传 now − 90 天
+   * @param limit 上限，默认 500
+   */
+  async listByUpdatedSince(sinceIso: string, limit: number = LIMITS.updatedSince): Promise<InfoRecord[]> {
+    const { data, error } = await cloud.database
+      .from('records')
+      .select('*')
+      .eq('is_deleted', false)
+      .gte('updated_at', sinceIso)
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+    const rows = (unwrap({ data, error }) as RecordsRow[] | null) ?? []
+    return rows.map(mapRecord)
+  },
+
+  /**
+   * 取可导出的待办（v2.13 R6 .ics 导出用）。
+   *
+   * 区间按 **`remind_at`** 过滤（不是 `created_at`）：导出的是「提醒/截止时间」，
+   * 与日历页按 `created_at` 排布的口径不同，弹窗里已写明。
+   * 不传区间（`range='all'`）时不过滤 `remind_at`，因此 `remind_at` 为空的待办也会返回
+   * （它们只出 `VTODO`、无 `DUE`、无 `VEVENT`）。
+   *
+   * @param opts.fromIso 区间起点（含），不传则不限
+   * @param opts.toIso 区间终点（不含），不传则不限
+   * @param opts.includeDone 是否包含已完成待办
+   * @param opts.limit 上限，默认 1000
+   */
+  async listTodosForExport(opts: {
+    fromIso?: string
+    toIso?: string
+    includeDone: boolean
+    limit?: number
+  }): Promise<InfoRecord[]> {
+    let query = cloud.database.from('records').select('*').eq('is_deleted', false).eq('type', 'todo')
+    if (!opts.includeDone) query = query.eq('todo_status', 'pending')
+    if (opts.fromIso) query = query.gte('remind_at', opts.fromIso)
+    if (opts.toIso) query = query.lt('remind_at', opts.toIso)
+    query = query.order('remind_at', { ascending: true }).limit(opts.limit ?? LIMITS.export)
+    const { data, error } = await query
+    const rows = (unwrap({ data, error }) as RecordsRow[] | null) ?? []
+    return rows.map(mapRecord)
   },
 
   /** 底层补丁（snake_case 字段，供 aiService 回写分类/摘要等）。 */
@@ -376,25 +562,61 @@ export const recordService = {
     unwrapRows({ data, error })
   },
 
-  /** 切换待办状态。 */
+  /** 切换待办状态（v2.13 R4：置 done 时顺带复位 snooze 状态）。 */
   async updateTodoStatus(id: number, status: TodoStatus): Promise<InfoRecord> {
     const { data, error } = await cloud.database
       .from('records')
       .update({ todo_status: status })
       .eq('id', id)
       .select()
-    return mapRecord(unwrapRows({ data, error })[0])
+    const updated = mapRecord(unwrapRows({ data, error })[0])
+    if (status === 'done' && hasSnoozeState(updated)) {
+      await resetSnoozeState(id)
+      // 同步返回值：完成后不应再显示「已推迟至 …」
+      return { ...updated, snoozedUntil: null, snoozeCount: 0 }
+    }
+    return updated
   },
 
-  /** 检索候选记录（用于智能关联召回；title/content + tags 单查询）。 */
+  /**
+   * 检索候选记录（用于智能关联召回）。
+   *
+   * v2.13 R1：与 `search()` 共用 `runKeywordQuery()`（多词 AND + tsvector 叠加），
+   * 语义保持不变：排除自身（`excludeId`）、按 `created_at DESC`、上限默认 20。
+   */
   async searchCandidates(keyword: string, k = LIMITS.searchCandidates, excludeId?: number): Promise<InfoRecord[]> {
     const kw = keyword.trim()
-    let query = cloud.database.from('records').select('*').eq('is_deleted', false)
-    if (excludeId !== undefined) query = query.neq('id', excludeId)
-    if (kw) query = applyKeyword(query, kw)
-    query = query.order('created_at', { ascending: false }).limit(k)
-    const { data, error } = await query
-    return ((unwrap({ data, error }) as RecordsRow[] | null) ?? []).map(mapRecord)
+    const build = (): KeywordQuery => {
+      let query = cloud.database.from('records').select('*').eq('is_deleted', false)
+      if (excludeId !== undefined) query = query.neq('id', excludeId)
+      return asKeywordQuery(query)
+    }
+    const rows = await runKeywordQuery(build, kw, k)
+    return rows.map(mapRecord)
+  },
+
+  /**
+   * 待办未完成 / 已完成总数（v2.13 R2：三段视图的「共 M 条」）。
+   *
+   * 只发 2 次 head count：三段划分依赖本地日边界与 someday/priority 组合，
+   * PostgREST 无法表达，拆成多次 count 再前端容斥既易漏数又易重复计数
+   * （见 DESIGN §1.2 计数方案）。
+   *
+   * @returns `{ pending, done }`；查询失败时抛错（由 UI 统一渲染中文提示）
+   */
+  async countTodoByStatus(): Promise<{ pending: number; done: number }> {
+    const countOf = async (status: TodoStatus): Promise<number> => {
+      const { count, error } = await cloud.database
+        .from('records')
+        .select('id', { count: 'exact' })
+        .eq('is_deleted', false)
+        .eq('type', 'todo')
+        .eq('todo_status', status)
+      if (error) unwrap({ data: null, error })
+      return count ?? 0
+    }
+    const [pending, done] = await Promise.all([countOf('pending'), countOf('done')])
+    return { pending, done }
   },
 
   /** 保存关联关系（去重 upsert，按 owner_id+source_id+target_id 唯一约束）。 */

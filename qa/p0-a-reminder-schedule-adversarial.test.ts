@@ -150,7 +150,7 @@ test('A4 去重键：同一记录同一 remind_at 稳定；不同 remind_at / �
 test('A4 去重键：改提前量不换键（同记录同 remind_at 只弹一次）', () => {
   const remindAt = '2026-10-12T02:00:00.000Z'
   // 键只由 (记录 id, remind_at) 决定，与 lead 无关 → 这一条断言即 A3/A4 口径冲突的裁决依据
-  assert.equal(dedupeKey(7, remindAt), `${7}|${remindAt}`)
+  assert.equal(dedupeKey(7, remindAt), `${7}|${remindAt}|0`)
 })
 
 test('A4 去重键可被 pruneFired 正确解析与保留', () => {

@@ -27,6 +27,17 @@ export interface RecordsRow {
   recurrence_next_id: number | null
   /** P0-C 链接元数据（JSONB）。 */
   link_meta: unknown
+  /**
+   * v2.13 R2 待办「某天」显式标记。
+   * 用 `?` 是「迁移未执行也兼容」：缺列时 `select('*')` 不返回该键，映射层回落 false。
+   */
+  someday?: boolean | null
+  /** v2.13 R4 稍后提醒到期时刻（UTC）；空 = 未推迟。 */
+  snoozed_until?: string | null
+  /** v2.13 R4 已 snooze 次数（去重键第三段）。 */
+  snooze_count?: number | null
+  /** v2.13 R1 检索用 generated tsvector（只读，应用永不写入）。 */
+  search_tsv?: string | null
   is_deleted: boolean
   deleted_at: string | null
   created_at: string
@@ -71,6 +82,8 @@ export interface SettingsRow {
   quiet_start: string
   /** P0-A 免打扰结束（本地墙钟 HH:mm）。 */
   quiet_end: string
+  /** v2.13 R5 周回顾向导进度（JSONB；`?` 兼容迁移未执行）。 */
+  review_wizard?: unknown
   avatar_image_id: number | null
   nickname: string | null
   updated_at: string

@@ -4,17 +4,28 @@
  * 生命周期：应用启动（Layout 挂载）→ start()；卸载 → stop()。
  * 触发点：30s 轮询 / 启动立即一次 / 页面重新可见 / 设置保存后立即一次。
  *
- * 去重：localStorage 键 `记录id|remind_at`（A4），配合内存锁避免同一 tick 重复。
+ * 去重：localStorage 键 `记录id|remind_at|snooze序号`（v2.13 R4 三段式，第三段 0 = 原始提醒），
+ * 配合内存锁避免同一 tick 重复。调度器对「旧两段键」也做一次只读兼容检查，
+ * 保证升级后已弹过的提醒不会重复弹。
  * 窗口隐藏时仍生效：桌面端 `backgroundThrottling: false` 保证渲染定时器不被降频。
  */
 
 import { recordService } from '@/services/recordService'
 import {
   getNotificationProvider,
+  setInAppSnoozeHandler,
   webNotificationPermission,
   type NotificationProvider,
 } from '@/services/notification'
-import { dedupeKey, pruneFired, resolveFireAt, shouldFire, STALE_MS, type FiredStore } from '@/lib/reminder-schedule'
+import {
+  dedupeKey,
+  effectiveFireAt,
+  legacyDedupeKey,
+  pruneFired,
+  shouldFire,
+  STALE_MS,
+  type FiredStore,
+} from '@/lib/reminder-schedule'
 import { profileService } from '@/services/profileService'
 import type { InfoRecord, Priority } from '@shared/types/domain'
 
@@ -162,7 +173,13 @@ export async function getReminderSettings(force = false): Promise<ReminderSettin
   return parts.filter(Boolean).join(' · ') || '待办提醒'
 }
 
-/** 处理单条候选。 */
+/**
+ * 处理单条候选。
+ *
+ * v2.13 R4 两处改动：
+ * 1. 去重键带上 `snoozeCount`（第三段）：推迟后重新弹一次，且同一轮只弹一次；
+ * 2. 触发时刻改用 `effectiveFireAt()`：有 `snoozedUntil` 时以它为触发点（不再减提前量）。
+ */
 async function handleCandidate(
   record: InfoRecord,
   settings: ReminderSettings,
@@ -170,11 +187,16 @@ async function handleCandidate(
   nowMs: number,
 ): Promise<void> {
   if (!record.remindAt) return
-  const fireAtMs = resolveFireAt(record.remindAt, settings.remindLeadMinutes)
+  // 有 snoozedUntil 时以它为触发点（不再减提前量），否则回落到 remind_at − 提前量
+  const fireAtMs = effectiveFireAt(record, settings.remindLeadMinutes)
   if (Number.isNaN(fireAtMs)) return
 
-  const key = dedupeKey(record.id, record.remindAt)
+  const token = record.snoozeCount ?? 0
+  const key = dedupeKey(record.id, record.remindAt, token)
   if (isFired(key)) return
+  // 升级兼容（只读）：v2.12.2 的两段键 `id|remind_at` 命中时不再重弹。
+  // 注意不能复用 dedupeKey()——它已经产出三段式，查不到旧键。
+  if (token === 0 && isFired(legacyDedupeKey(record.id, record.remindAt))) return
   // 未到点：本 tick 不处理（也不写键，等真正到点）
   if (nowMs < fireAtMs) return
 
@@ -318,6 +340,45 @@ export function invalidateSettingsCache(): void {
   settingsCache = null
 }
 
+/* ---------------------------- v2.13 R4 snooze ---------------------------- */
+
+/** 可选的推迟时长（分钟）：都小于 `STALE_MS`（12h），因此推迟后仍在候选窗口内。 */
+export const SNOOZE_OPTIONS: readonly number[] = [10, 30, 60] as const
+
+/**
+ * 推迟一条待办的提醒（v2.13 R4）。
+ *
+ * 只写 `snoozed_until` 与 `snooze_count`，**不改 `remind_at`**：
+ * - `snoozed_until` = 现在 + minutes（UTC ISO）；
+ * - `snooze_count` = 原值 + 1（即下一次重弹的去重键第三段）。
+ *
+ * 为什么上限 1 小时：`listReminderCandidates()` 按
+ * `remind_at ∈ [now-12h-lead, now+lead]` 拉候选，推迟更久会让 `remind_at`
+ * 早于窗口下界而被 `shouldFire()` 判 drop（见 PRD R4 风险 ③）。
+ *
+ * @param recordId 记录 id
+ * @param minutes 推迟时长，必须是 `SNOOZE_OPTIONS` 之一
+ * @returns 更新后的记录
+ * @throws 时长不支持 / 记录不存在 / 不是未完成待办
+ */
+export async function snooze(recordId: number, minutes: number): Promise<InfoRecord> {
+  if (!SNOOZE_OPTIONS.includes(minutes)) throw new Error('不支持的推迟时长')
+  const record = await recordService.getRecord(recordId)
+  if (!record || record.isDeleted) throw new Error('记录不存在或已删除')
+  if (record.type !== 'todo' || record.todoStatus !== 'pending') throw new Error('该记录不是待办')
+  const nextCount = (record.snoozeCount ?? 0) + 1
+  const until = new Date(Date.now() + minutes * 60_000).toISOString()
+  return recordService.patchRecord(recordId, { snoozed_until: until, snooze_count: nextCount })
+}
+
+/**
+ * 注册应用内提示条的「稍后 10 分钟」回调（模块初始化时执行一次）。
+ * 方向：notification 不 import reminderService（否则循环依赖），由本模块反向注入。
+ */
+setInAppSnoozeHandler((recordId) => {
+  void snooze(recordId, 10).catch(() => undefined)
+})
+
 /** 调度器单例（与项目其它 service 风格一致）。 */
 export const reminderService = {
   start,
@@ -327,4 +388,5 @@ export const reminderService = {
   getSettings: getReminderSettings,
   invalidateSettingsCache,
   requestPermission: requestNotificationPermission,
+  snooze,
 }

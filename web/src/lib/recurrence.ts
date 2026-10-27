@@ -10,7 +10,7 @@
  *   daily / weekly / monthly 三条分支互不复用，避免相互干扰。
  */
 
-import type { RecurrenceFreq, RecurrenceRule } from '@shared/types/domain'
+import type { RecurrenceFreq, RecurrenceMode, RecurrenceRule } from '@shared/types/domain'
 
 const MS_PER_DAY = 86_400_000
 const MS_PER_MINUTE = 60_000
@@ -98,6 +98,20 @@ export function normalizeAnchorDay(value: unknown): number | null {
 }
 
 /**
+ * 循环基准模式归一（v2.13 R3）。
+ *
+ * 只有 `'completion'` 会被保留：`'due'` / 缺省 / 非法值一律返回 `undefined`，
+ * 使 `normalizeRecurrenceRule()` 在旧数据上**不新增 JSONB 键**（diff 噪声最小，
+ * 且「缺省即 due」这一契约由读取侧统一保证）。
+ *
+ * @param value 任意来源（JSONB / 表单）的 mode 值
+ * @returns `'completion'` 或 `undefined`
+ */
+export function normalizeMode(value: unknown): RecurrenceMode | undefined {
+  return value === 'completion' ? 'completion' : undefined
+}
+
+/**
  * 归一化任意来源（JSONB 脏数据 / 表单）的循环规则。
  * 非法结构返回 null（视为「不循环」），保证不会因脏数据抛错。
  */
@@ -109,6 +123,7 @@ export function normalizeRecurrenceRule(rule: unknown): RecurrenceRule | null {
     weekdays?: unknown
     anchorDay?: unknown
     endDate?: unknown
+    mode?: unknown
   }
   const freq = raw.freq
   const validFreq: RecurrenceFreq[] = ['daily', 'weekly', 'monthly']
@@ -127,6 +142,9 @@ export function normalizeRecurrenceRule(rule: unknown): RecurrenceRule | null {
   // 仅在合法时保留，避免给旧数据/非 monthly 规则增加无意义字段
   const anchorDay = normalizeAnchorDay(raw.anchorDay)
   if (anchorDay !== null) normalized.anchorDay = anchorDay
+  // 仅在 completion 时写键：due / 缺省 / 非法值一律不落键（旧数据 JSONB 保持原样）
+  const mode = normalizeMode(raw.mode)
+  if (mode) normalized.mode = mode
   return normalized
 }
 
@@ -146,15 +164,19 @@ export function computeNext(rule: RecurrenceRule, input: ComputeNextInput): Comp
   const tz = typeof input.tzOffsetMinutes === 'number' ? input.tzOffsetMinutes : localTzOffsetMinutes()
   const remindMs = parseIso(input.remindAt)
   const nowMs = parseIso(input.nowIso) ?? Date.now()
-  const baseMs = remindMs ?? nowMs
-  const shiftedBase = baseMs + tz * MS_PER_MINUTE
   const endDate = normalizeEndDate(rule.endDate)
 
   // 无提醒时间：不推进时间轴，只判断规则是否已过期
+  // （v2.13 R3：completion 模式同样走这条分支 —— 时分无处可取，下一期无提醒时间）
   if (remindMs === null) {
-    const ended = endDate !== null && shiftedDayKey(shiftedBase) > endDate
+    const shiftedNow = nowMs + tz * MS_PER_MINUTE
+    const ended = endDate !== null && shiftedDayKey(shiftedNow) > endDate
     return { nextRemindIso: null, ruleEnded: ended }
   }
+
+  // v2.13 R3：基准时刻由 mode 决定（due = 上一期 remind_at；completion = 完成日的同一时分）
+  const baseMs = resolveBaseMs(rule.mode, remindMs, nowMs, tz)
+  const shiftedBase = baseMs + tz * MS_PER_MINUTE
 
   const interval = normalizeInterval(rule.interval)
   const shiftedNext = advance(
@@ -175,6 +197,29 @@ export function computeNext(rule: RecurrenceRule, input: ComputeNextInput): Comp
   }
 
   return { nextRemindIso: new Date(shiftedNext - tz * MS_PER_MINUTE).toISOString(), ruleEnded: false }
+}
+
+/** 某时刻「本地日 00:00」对应的真实 epoch 毫秒（在平移轴上取日界，再平移回来）。 */
+function localDayStartMs(ms: number, tz: number): number {
+  const wall = new Date(ms + tz * MS_PER_MINUTE)
+  const shiftedDayStart = Date.UTC(wall.getUTCFullYear(), wall.getUTCMonth(), wall.getUTCDate())
+  return shiftedDayStart - tz * MS_PER_MINUTE
+}
+
+/**
+ * 解析推进的基准时刻（v2.13 R3 唯一改动点）。
+ *
+ * - `due`（缺省/非法值）：基准 = 上一期 `remind_at`，与 v2.12.2 完全一致；
+ * - `completion`：基准 = **完成日**（`nowMs` 的本地日）+ **原 `remind_at` 的本地时分**。
+ *   时分取自 `remind_at` 而非完成时刻，是为了保住习惯类待办「每天早上 9 点提醒」的语义
+ *   （见 PRD §7 问题 4 的默认假设：23:50 完成、原时分 09:00 → 新一期仍是 09:00）。
+ *
+ * 后续 `advance()` 三条分支（weekdays 优先 / anchorDay 短月夹取 / endDate 比较）逻辑不变。
+ */
+function resolveBaseMs(mode: unknown, remindMs: number, nowMs: number, tz: number): number {
+  if (normalizeMode(mode) !== 'completion') return remindMs
+  const timeOfDay = remindMs - localDayStartMs(remindMs, tz)
+  return localDayStartMs(nowMs, tz) + timeOfDay
 }
 
 /** 按频率推进平移轴上的时间；无法推进返回 null。 */
@@ -248,6 +293,8 @@ const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 /**
  * 生成循环规则的中文描述：`每天` / `每 2 天` / `每周一、三` / `每月最后一天`。
  *
+ * v2.13 R3：`mode === 'completion'` 时追加 `（按完成日）`，如「每 2 天（按完成日）」。
+ *
  * @param rule 循环规则
  * @param remindAt 可选，基准提醒时间；monthly 时用于展示「每月 N 日 / 每月最后一天」。
  */
@@ -257,6 +304,12 @@ export function describeRecurrence(
 ): string {
   const normalized = normalizeRecurrenceRule(rule)
   if (!normalized) return ''
+  const base = describeRuleBase(normalized, remindAt)
+  return normalized.mode === 'completion' ? `${base}（按完成日）` : base
+}
+
+/** 描述文案的「频率部分」（不含 mode 后缀）。 */
+function describeRuleBase(normalized: RecurrenceRule, remindAt?: string | null): string {
   const interval = normalizeInterval(normalized.interval)
 
   if (normalized.freq === 'daily') {

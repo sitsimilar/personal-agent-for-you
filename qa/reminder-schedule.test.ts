@@ -174,8 +174,11 @@ test('时区参数化：同一绝对时刻在不同时区得到不同的免打�
   assert.equal(shouldFire({ ...base, tzOffsetMinutes: 0 }).action, 'fire')
 })
 
-test('dedupeKey：记录 id + remind_at', () => {
-  assert.equal(dedupeKey(7, '2026-10-12T02:00:00.000Z'), '7|2026-10-12T02:00:00.000Z')
+test('dedupeKey：记录 id + remind_at + snooze 序号（v2.13 R4 三段式）', () => {
+  assert.equal(dedupeKey(7, '2026-10-12T02:00:00.000Z'), '7|2026-10-12T02:00:00.000Z|0')
+  // 第三段缺省 = 0（原始提醒），非法 token 归一到 0
+  assert.equal(dedupeKey(7, '2026-10-12T02:00:00.000Z', 3), '7|2026-10-12T02:00:00.000Z|3')
+  assert.equal(dedupeKey(7, '2026-10-12T02:00:00.000Z', Number.NaN), '7|2026-10-12T02:00:00.000Z|0')
 })
 
 test('pruneFired：清理过期与非法键', () => {

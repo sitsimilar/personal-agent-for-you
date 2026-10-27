@@ -12,6 +12,9 @@ export type Priority = 'high' | 'medium' | 'low'
 /** 循环频率：每天 / 每周 / 每月。 */
 export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly'
 
+/** 下一期基准日：按到期日（默认，旧行为）/ 按完成日。 */
+export type RecurrenceMode = 'due' | 'completion'
+
 /** 待办循环规则（JSONB 存储，内部键为 camelCase）。 */
 export interface RecurrenceRule {
   freq: RecurrenceFreq
@@ -23,6 +26,12 @@ export interface RecurrenceRule {
   anchorDay?: number | null
   /** 'YYYY-MM-DD' 本地日，含当日；null/空表示无限。 */
   endDate?: string | null
+  /**
+   * v2.13 R3：下一期基准日。
+   * 缺省（或非法值）= `'due'`，即按上一期 `remind_at` 推进（旧行为）；
+   * `'completion'` = 以完成日为基准推进，时分仍取原 `remind_at` 的本地时分。
+   */
+  mode?: RecurrenceMode
 }
 
 /** 链接元数据（P0-C，由服务端代理抓取后回写）。 */
@@ -59,6 +68,15 @@ export interface InfoRecord {
   recurrenceNextId?: number | null
   /** 链接元数据（无则 null）。 */
   linkMeta?: LinkMeta | null
+  /**
+   * v2.13 R2：待办「某天」显式标记。
+   * 可选 + 可空是为了兼容「迁移未执行」与旧数据（缺失一律按 false 处理）。
+   */
+  someday?: boolean | null
+  /** v2.13 R4：稍后提醒的到期时刻（ISO UTC），空 = 未推迟；不改 `remindAt`。 */
+  snoozedUntil?: string | null
+  /** v2.13 R4：已 snooze 次数（去重键第三段），缺失按 0 处理。 */
+  snoozeCount?: number
   isDeleted: boolean
   deletedAt?: string | null
   createdAt: string
@@ -105,6 +123,8 @@ export interface UserSettings {
   quietStart: string
   /** 免打扰结束（本地墙钟 HH:mm），可跨零点。 */
   quietEnd: string
+  /** v2.13 R5 周回顾向导断点续进度（空 = 无进行中回顾）。 */
+  reviewWizard?: ReviewWizardProgress | null
 }
 
 /** 新建记录入参。 */
@@ -123,6 +143,12 @@ export interface RecordCreateInput {
   recurrence?: RecurrenceRule | null
   /** 循环链根记录 id（生成下一期时传入）。 */
   recurrenceParentId?: number | null
+  /** v2.13 R2：「某天」显式标记（缺省由数据库默认 false 填充）。 */
+  someday?: boolean | null
+  /** v2.13 R4：稍后提醒到期时刻（ISO UTC）。 */
+  snoozedUntil?: string | null
+  /** v2.13 R4：snooze 次数（去重键第三段）。 */
+  snoozeCount?: number
 }
 
 /** 记录列表筛选条件。 */
@@ -141,6 +167,80 @@ export interface RecordListResult {
   records: InfoRecord[]
   total: number
 }
+
+/**
+ * v2.13 R2：待办三段视图的分段标识。
+ * 三值互斥且完备（每条未完成待办恰好属于且只属于一段）。
+ */
+export type TodoBucket = 'today' | 'upcoming' | 'someday'
+
+/** v2.13 R2：三段计数（`total` 恒等于传入集合条数，可单测守恒）。 */
+export interface TodoBucketCounts {
+  today: number
+  upcoming: number
+  someday: number
+  total: number
+}
+
+/* ------------------------- v2.13 R5 周回顾向导 ------------------------- */
+
+/** 向导步骤号（1..5）。 */
+export type ReviewWizardStep = 1 | 2 | 3 | 4 | 5
+
+/** 向导第 1 步单条记录的处理决定。 */
+export interface ReviewWizardInboxItem {
+  recordId: number
+  /** assign = 归到某分类；archive = 归档（保持无分类）；skip = 暂不处理。 */
+  decision: 'assign' | 'archive' | 'skip'
+  category?: string | null
+}
+
+/** 向导第 2 步「下一步行动」（只写进回顾正文，不创建待办）。 */
+export interface ReviewWizardNextAction {
+  /** 所属分类（本项目以 category 近似「项目」）。 */
+  category: string
+  text: string
+}
+
+/** 向导第 3 步「等待中」的处理决定。 */
+export interface ReviewWizardWaitingItem {
+  recordId: number
+  decision: 'keep' | 'delete' | 'skip'
+}
+
+/** 向导第 4 步「项目健康」确认项。 */
+export interface ReviewWizardHealthItem {
+  category: string
+  /** 用户是否已确认「知道它搁置了」。 */
+  acknowledged: boolean
+}
+
+/**
+ * 向导进度（存 `settings.review_wizard`，JSONB）。
+ * `weekStart` 用于跨周失效；`updatedAt` 用于 24h 过期判定；`completedAt` 用于落库幂等。
+ */
+export interface ReviewWizardProgress {
+  version: 1
+  step: ReviewWizardStep
+  /** 本周一的本地日 'YYYY-MM-DD'。 */
+  weekStart: string
+  startedAt: string
+  updatedAt: string
+  completedAt?: string | null
+  completedRecordId?: number | null
+  inbox: ReviewWizardInboxItem[]
+  nextActions: ReviewWizardNextAction[]
+  waiting: ReviewWizardWaitingItem[]
+  health: ReviewWizardHealthItem[]
+  /** 下周三件事（最多 3 条，空串表示未填）。 */
+  focus: string[]
+  aiFailed?: boolean
+}
+
+/* ------------------------- v2.13 R6 .ics 导出 ------------------------- */
+
+/** .ics 导出范围：当前月 / 当前周 / 全部。 */
+export type IcsRange = 'month' | 'week' | 'all'
 
 /** 关联打分结果（LLM 输出）。 */
 export interface RelateResultItem {

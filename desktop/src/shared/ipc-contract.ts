@@ -252,7 +252,7 @@ export interface CppProvisionResult {
 
 /** 系统通知载荷（renderer → main）。 */
 export interface NotifyPayload {
-  /** 去重键（`记录id|remind_at`），点击时原样回传。 */
+  /** 去重键（`记录id|remind_at|snooze序号`），点击时原样回传。 */
   key: string
   recordId: number
   title: string

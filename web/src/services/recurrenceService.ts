@@ -88,10 +88,19 @@ export async function completeTodoWithRecurrence(record: InfoRecord): Promise<Co
   const updated = await markDoneConditionally(record.id, nowIso)
   if (!updated) return { duplicated: true }
 
+  // v2.13 R4：完成即复位 snooze 状态（snoozed_until=null / snooze_count=0）。
+  // 本路径用条件更新直连云库，不经过 recordService.updateTodoStatus，故此处显式补一次。
+  // 只在确有 snooze 状态时才发请求：无 snooze 的常规完成路径零额外查询（行为与 v2.12.2 一致）。
+  if ((record.snoozeCount ?? 0) > 0 || record.snoozedUntil) {
+    await recordService.resetSnoozeState(record.id)
+  }
+
   // 无循环规则：与 2.11.0 行为一致，仅置 done
   if (!record.recurrence) return {}
 
   // 第二步：纯函数推进
+  // v2.13 R3：`nowIso` 即「完成时刻」，completion 模式下 computeNext 以它的本地日为基准；
+  // due 模式下 nowIso 不参与推进（基准仍是上一期 remind_at），行为与 v2.12.2 完全一致。
   const { nextRemindIso, ruleEnded } = computeNext(record.recurrence, {
     remindAt: record.remindAt ?? null,
     nowIso,

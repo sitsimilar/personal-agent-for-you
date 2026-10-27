@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box,
   Button,
@@ -18,10 +18,14 @@ import {
 } from '@mui/material'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import AddTaskIcon from '@mui/icons-material/AddTask'
-import type { ActionItem, ReviewResult } from '@shared/types/domain'
+import ChecklistIcon from '@mui/icons-material/Checklist'
+import type { ActionItem, InfoRecord, ReviewResult } from '@shared/types/domain'
 import { recordService } from '@/services/recordService'
 import { aiService } from '@/services/aiService'
+import { reviewWizardService } from '@/services/reviewWizardService'
 import { friendlyError } from '@/lib/unwrap'
+import RecordDetail from '@/components/RecordDetail'
+import ReviewWizard from '@/components/ReviewWizard'
 
 type Range = 'week' | 'month' | 'custom'
 
@@ -68,11 +72,32 @@ export default function ReviewPage() {
   const [empty, setEmpty] = useState(false)
   const [converted, setConverted] = useState<Set<number>>(new Set())
   const [toast, setToast] = useState('')
+  /** v2.13 R5：周回顾向导。 */
+  const [wizardOpen, setWizardOpen] = useState(false)
+  /** 已保存的向导步数（null = 无进行中进度）。 */
+  const [wizardStep, setWizardStep] = useState<number | null>(null)
+  /** 完成后展开的回顾记录。 */
+  const [finishedRecord, setFinishedRecord] = useState<InfoRecord | null>(null)
 
   const showToast = (msg: string) => {
     setToast(msg)
     window.setTimeout(() => setToast(''), 3000)
   }
+
+  /** 读取向导进度（决定按钮文案：开始 / 继续（第 N/5 步））。 */
+  const refreshWizardStep = async () => {
+    try {
+      const { progress } = await reviewWizardService.load()
+      setWizardStep(progress ? progress.step : null)
+    } catch {
+      // 读进度失败不影响原有 AI 阶段总结功能
+      setWizardStep(null)
+    }
+  }
+
+  useEffect(() => {
+    void refreshWizardStep()
+  }, [])
 
   const computeRange = (): { start: Date; end: Date } => {
     const now = new Date()
@@ -179,14 +204,19 @@ export default function ReviewPage() {
             )}
 
             <Box>
-              <Button
-                variant="contained"
-                startIcon={<AutoAwesomeIcon />}
-                onClick={generate}
-                disabled={loading || (range === 'custom' && (!customStart || !customEnd))}
-              >
-                {loading ? '生成中…' : '生成回顾'}
-              </Button>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  variant="contained"
+                  startIcon={<AutoAwesomeIcon />}
+                  onClick={generate}
+                  disabled={loading || (range === 'custom' && (!customStart || !customEnd))}
+                >
+                  {loading ? '生成中…' : '生成回顾'}
+                </Button>
+                <Button variant="outlined" startIcon={<ChecklistIcon />} onClick={() => setWizardOpen(true)}>
+                  {wizardStep ? `继续周回顾（第 ${wizardStep}/5 步）` : '开始周回顾（5 步）'}
+                </Button>
+              </Stack>
             </Box>
           </Stack>
         </CardContent>
@@ -290,6 +320,33 @@ export default function ReviewPage() {
           <Chip label={toast} color="primary" />
         </Box>
       )}
+
+      <ReviewWizard
+        open={wizardOpen}
+        onClose={() => {
+          setWizardOpen(false)
+          void refreshWizardStep()
+        }}
+        onFinished={(recordId) => {
+          showToast('已生成周回顾记录')
+          void (async () => {
+            try {
+              const record = await recordService.getRecord(recordId)
+              setFinishedRecord(record)
+            } catch {
+              setFinishedRecord(null)
+            }
+          })()
+          void refreshWizardStep()
+        }}
+      />
+
+      <RecordDetail
+        record={finishedRecord}
+        open={!!finishedRecord}
+        onClose={() => setFinishedRecord(null)}
+        onChanged={() => undefined}
+      />
     </Box>
   )
 }

@@ -198,3 +198,100 @@ BEGIN
     EXECUTE format('CREATE POLICY %I_delete_own ON public.%I FOR DELETE TO authenticated, anon USING (owner_id = auth.uid())', t, t);
   END LOOP;
 END $$;
+
+-- =============================================================================
+-- 增量迁移（v2.13）
+-- -----------------------------------------------------------------------------
+-- 与 docs/v2.13/migration.sql 内容一致（同一份 DDL 的两个存档位）。
+-- 范围：R1 检索走索引（pg_trgm + tsvector）、R2 待办「某天」（someday）、
+--       R3 循环「按完成日重复」（JSONB 内加键，无 DDL，仅改列注释）、
+--       R4 提醒「稍后」（snoozed_until / snooze_count）、
+--       R5 周回顾向导进度（settings.review_wizard）、R6 .ics 导出（无 DDL）。
+-- 特性：纯增量、全部可空或有默认值、幂等可重跑、不回填数据、不改既有 RLS 策略。
+-- 说明：本段是「等价 DDL 存档」，应用代码【不执行任何 DDL】；
+--       线上由主理人手工执行（CREATE EXTENSION 需要 migrate 权限）。
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- 0) 扩展（必须第一条，先于第 4) 段 trgm 索引；若无权限见 DESIGN §3.3「备而不用」）
+-- ---------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- ---------------------------------------------------------------------------
+-- 1) records 增量列（someday 由 DEFAULT false 填充历史行；search_tsv 为 generated 列）
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.records
+  ADD COLUMN IF NOT EXISTS someday       BOOLEAN     NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS snoozed_until TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS snooze_count  INT         NOT NULL DEFAULT 0;
+
+ALTER TABLE public.records
+  ADD COLUMN IF NOT EXISTS search_tsv tsvector
+    GENERATED ALWAYS AS (
+      to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, ''))
+    ) STORED;
+
+COMMENT ON COLUMN public.records.someday IS 'v2.13 R2 待办「某天」显式标记（true 时只出现在某天段，不再出现在今天/即将）';
+COMMENT ON COLUMN public.records.snoozed_until IS 'v2.13 R4 稍后提醒的到期时刻（UTC），空表示未推迟；不改 remind_at';
+COMMENT ON COLUMN public.records.snooze_count IS 'v2.13 R4 已 snooze 次数，用作去重键第三段；完成/改提醒时间时由应用层复位为 0';
+COMMENT ON COLUMN public.records.search_tsv IS 'v2.13 R1 检索用 generated tsvector（simple 配置，title + content）';
+
+-- ---------------------------------------------------------------------------
+-- 2) 注释同步（无 DDL）：recurrence 新增 mode 键（R3，JSONB 内键，旧数据缺省即 due）
+-- ---------------------------------------------------------------------------
+COMMENT ON COLUMN public.records.recurrence IS 'P0-B 循环规则 {freq:daily|weekly|monthly,interval:1..99,weekdays:number[],anchorDay?:1..31,endDate:YYYY-MM-DD|null,mode?:due|completion}；v2.13 起 mode=completion 表示以完成日为下一期基准';
+
+-- ---------------------------------------------------------------------------
+-- 3) settings 增量列（R5 周回顾向导断点续；沿用 float_position 的 JSONB 先例）
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.settings
+  ADD COLUMN IF NOT EXISTS review_wizard JSONB;
+
+COMMENT ON COLUMN public.settings.review_wizard IS 'v2.13 R5 周回顾向导断点续进度（ReviewWizardProgress），空表示无进行中回顾';
+
+-- ---------------------------------------------------------------------------
+-- 4) 约束（幂等：用 catalog 判重）
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'records_snooze_count_chk' AND conrelid = 'public.records'::regclass
+  ) THEN
+    ALTER TABLE public.records ADD CONSTRAINT records_snooze_count_chk CHECK (snooze_count >= 0);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- 5) 索引（trgm：中文/子串主力路径；search_tsv：英文与多词叠加；someday：某天段）
+--    命名沿用 records_owner_* 风格；GIN 键里不含 owner_id（不引入 btree_gin）
+-- ---------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS records_owner_title_trgm_idx
+  ON public.records USING GIN (title gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS records_owner_content_trgm_idx
+  ON public.records USING GIN (content gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS records_owner_search_tsv_idx
+  ON public.records USING GIN (search_tsv);
+
+CREATE INDEX IF NOT EXISTS records_owner_someday_idx
+  ON public.records (owner_id, todo_status)
+  WHERE someday = true AND is_deleted = false;
+
+-- ---------------------------------------------------------------------------
+-- 6) 自检（期望 4 / 1 / 4 / 1 / 4）
+-- ---------------------------------------------------------------------------
+-- SELECT count(*) FROM information_schema.columns
+--  WHERE table_schema='public' AND table_name='records'
+--    AND column_name IN ('someday','snoozed_until','snooze_count','search_tsv');       -- 期望 4
+-- SELECT count(*) FROM information_schema.columns
+--  WHERE table_schema='public' AND table_name='settings'
+--    AND column_name='review_wizard';                                                   -- 期望 1
+-- SELECT indexname FROM pg_indexes WHERE schemaname='public'
+--   AND indexname IN ('records_owner_title_trgm_idx','records_owner_content_trgm_idx',
+--                     'records_owner_search_tsv_idx','records_owner_someday_idx');      -- 期望 4
+-- SELECT conname FROM pg_constraint WHERE conname='records_snooze_count_chk';           -- 期望 1
+-- SELECT extname, extversion FROM pg_extension WHERE extname='pg_trgm';                 -- 期望 1 行，1.6
+-- SELECT policyname FROM pg_policies WHERE schemaname='public'
+--   AND tablename IN ('records','settings');                                            -- 期望各 4 条，未变

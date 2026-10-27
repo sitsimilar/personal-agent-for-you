@@ -74,6 +74,17 @@ const targets = [
   { entry: 'qa/p0-c-domain-resolution-regression.test.ts', out: 'qa/dist/p0-c-domain-resolution-regression.test.cjs', alias: {} },
   { entry: 'qa/p0-c-server-smoke.test.ts', out: 'qa/dist/p0-c-server-smoke.test.cjs', alias: {} },
   { entry: 'qa/p0-e-frontend-safety.test.ts', out: 'qa/dist/p0-e-frontend-safety.test.cjs', alias: webAlias },
+  // v2.13 第一批（T01 地基 / T02 R1 检索 / T03 R2 三段视图 / T04 R3 completion 模式）
+  { entry: 'qa/v213-foundation.test.ts', out: 'qa/dist/v213-foundation.test.cjs', alias: webAlias },
+  { entry: 'qa/v213-search.test.ts', out: 'qa/dist/v213-search.test.cjs', alias: webAlias },
+  { entry: 'qa/todo-segments.test.ts', out: 'qa/dist/todo-segments.test.cjs', alias: webAlias },
+  { entry: 'qa/recurrence-completion.test.ts', out: 'qa/dist/recurrence-completion.test.cjs', alias: {} },
+  // v2.13 第二批（T05 R4 snooze / T06 R5 周回顾向导 / T07 R6 ICS 导出）
+  { entry: 'qa/v213-reminder-snooze.test.ts', out: 'qa/dist/v213-reminder-snooze.test.cjs', alias: webAlias },
+  { entry: 'qa/v213-review-wizard.test.ts', out: 'qa/dist/v213-review-wizard.test.cjs', alias: webAlias },
+  { entry: 'qa/v213-ics.test.ts', out: 'qa/dist/v213-ics.test.cjs', alias: webAlias },
+  // v2.13 QA 独立验证（边界 / 对抗 / 现状锁定）
+  { entry: 'qa/v213-qa-edge.test.ts', out: 'qa/dist/v213-qa-edge.test.cjs', alias: webAlias },
 ]
 
 // 云服务配置已参数化为 import.meta.env.VITE_*；测试环境无 Vite 注入，

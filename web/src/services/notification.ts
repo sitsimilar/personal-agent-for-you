@@ -12,7 +12,7 @@ export type NotifyChannel = 'desktop' | 'web' | 'inapp'
 
 /** 通知载荷（桌面端经 IPC 传给主进程）。 */
 export interface NotifyPayload {
-  /** 去重键（`记录id|remind_at`），回传给点击事件便于溯源。 */
+  /** 去重键（`记录id|remind_at|snooze序号`），回传给点击事件便于溯源。 */
   key: string
   recordId: number
   title: string
@@ -43,6 +43,33 @@ function inAppMessage(p: NotifyPayload): string {
   return body ? `${title}：${body}` : title
 }
 
+/* ---------------------- v2.13 R4 应用内「稍后」 ---------------------- */
+
+/**
+ * 应用内「稍后 10 分钟」回调（由 `reminderService` 在模块初始化时注册）。
+ *
+ * 为什么不在这里直接 import reminderService：会形成
+ * `notification → reminderService → notification` 循环依赖。
+ * 这里只持有一个外部注入的函数，保持本模块零业务依赖。
+ */
+let inAppSnoozeHandler: ((recordId: number) => void) | null = null
+
+/**
+ * 注册 / 注销应用内提示条上的「稍后」回调。
+ *
+ * @param fn 收到 recordId 的回调；传 null 注销
+ */
+export function setInAppSnoozeHandler(fn: ((recordId: number) => void) | null): void {
+  inAppSnoozeHandler = fn
+}
+
+/** 应用内提示条的动作（无 handler 时返回 undefined，不渲染按钮）。 */
+function inAppAction(p: NotifyPayload): { label: string; onAction: () => void } | undefined {
+  const handler = inAppSnoozeHandler
+  if (!handler) return undefined
+  return { label: '稍后 10 分钟', onAction: () => handler(p.recordId) }
+}
+
 /* ------------------------------- inapp ------------------------------- */
 
 const inAppClickHandlers = new Set<(recordId: number) => void>()
@@ -56,7 +83,7 @@ const inAppProvider: NotificationProvider = {
     return 'granted'
   },
   async notify(p: NotifyPayload): Promise<NotifyResult> {
-    pushNotice(inAppMessage(p), 'info')
+    pushNotice(inAppMessage(p), 'info', inAppAction(p))
     return { channel: 'inapp', ok: true }
   },
   onClick(cb) {
@@ -72,6 +99,7 @@ function degrade(p: NotifyPayload, reason: 'permission-denied' | 'unsupported' |
       ? `通知权限未开启，已降级为应用内提示：${inAppMessage(p)}`
       : `系统通知不可用，已降级为应用内提示：${inAppMessage(p)}`,
     'warning',
+    inAppAction(p),
   )
   return { channel: 'inapp', ok: false, reason }
 }

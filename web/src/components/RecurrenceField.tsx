@@ -1,8 +1,11 @@
 import {
   Box,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   TextField,
@@ -10,7 +13,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
-import type { RecurrenceFreq, RecurrenceRule } from '@shared/types/domain'
+import type { RecurrenceFreq, RecurrenceMode, RecurrenceRule } from '@shared/types/domain'
 import { defaultWeekday, normalizeRecurrenceRule } from '@/lib/recurrence'
 
 interface RecurrenceFieldProps {
@@ -51,11 +54,19 @@ function dayOfMonth(remindAt?: string | null): number | null {
   return new Date(ms).getDate()
 }
 
+/** 去掉规则里的 mode 键（切回「从到期日算」时保持旧数据形态，不留无用键）。 */
+function withoutMode(rule: RecurrenceRule): RecurrenceRule {
+  const next: RecurrenceRule = { ...rule }
+  delete next.mode
+  return next
+}
+
 /**
- * 待办「重复」控件（P0-B）。
+ * 待办「重复」控件（P0-B，v2.13 R3 增「按完成日」）。
  *
- * 交互：频率（不重复/每天/每周/每月）→ 间隔 1–99 → 每周多选周几 → 结束日期。
- * 规则内部键为 camelCase，与 JSONB 存储一致；选择「不重复」时回调 null。
+ * 交互：频率（不重复/每天/每周/每月）→ 间隔 1–99 → 下一期基准（到期日/完成日）
+ * → 每周多选周几 → 结束日期。规则内部键为 camelCase，与 JSONB 存储一致；
+ * 选择「不重复」时回调 null。
  */
 export default function RecurrenceField({ value, onChange, remindAt, disabled }: RecurrenceFieldProps) {
   const rule = normalizeRecurrenceRule(value)
@@ -65,6 +76,8 @@ export default function RecurrenceField({ value, onChange, remindAt, disabled }:
   const endDate = rule?.endDate ?? ''
   /** 已填的锚定日号（仅 monthly 使用）。 */
   const anchorDay = rule?.anchorDay ?? null
+  /** 当前下一期基准（缺省即 due，与旧数据兼容）。 */
+  const mode: RecurrenceMode = rule?.mode === 'completion' ? 'completion' : 'due'
   /** monthly 默认锚定日：优先 remindAt 的日号，无则今天。 */
   const defaultAnchorDay = () => dayOfMonth(remindAt) ?? new Date().getDate()
 
@@ -77,23 +90,38 @@ export default function RecurrenceField({ value, onChange, remindAt, disabled }:
   /** 非 monthly 只在已有锚定日时携带，避免给规则塞无意义字段。 */
   const anchorField = anchorDay != null ? { anchorDay } : {}
 
+  /** 只在 completion 时携带 mode 键（due 不落键，保持旧数据 JSONB 形态）。 */
+  const modeField = mode === 'completion' ? { mode: 'completion' as const } : {}
+
   const handleFreqChange = (next: FreqValue) => {
     if (next === 'none') {
       onChange(null)
       return
     }
     if (next === 'weekly') {
-      // 默认取 remind_at 的星期；无 remind_at 取今天；不丢弃已填的锚定日
+      // 默认取 remind_at 的星期；无 remind_at 取今天；不丢弃已填的锚定日与 mode
       const selected = weekdays.length > 0 ? weekdays : [defaultWeekday(remindAt)]
-      onChange({ freq: 'weekly', interval, weekdays: selected, endDate: endDate || null, ...anchorField })
+      onChange({ freq: 'weekly', interval, weekdays: selected, endDate: endDate || null, ...anchorField, ...modeField })
       return
     }
     if (next === 'monthly') {
       // 锚定日优先取提醒时间日号，无提醒时间取今天；已有锚定日则沿用
-      onChange({ freq: 'monthly', interval, anchorDay: anchorDay ?? defaultAnchorDay(), endDate: endDate || null })
+      onChange({
+        freq: 'monthly',
+        interval,
+        anchorDay: anchorDay ?? defaultAnchorDay(),
+        endDate: endDate || null,
+        ...modeField,
+      })
       return
     }
-    onChange({ freq: next, interval, endDate: endDate || null, ...anchorField })
+    onChange({ freq: next, interval, endDate: endDate || null, ...anchorField, ...modeField })
+  }
+
+  /** 切换下一期基准（只改 mode 键，其它键原样保留）。 */
+  const handleModeChange = (next: RecurrenceMode) => {
+    if (!rule) return
+    onChange(next === 'completion' ? { ...rule, mode: 'completion' } : withoutMode(rule))
   }
 
   const handleIntervalChange = (raw: string) => {
@@ -160,6 +188,30 @@ export default function RecurrenceField({ value, onChange, remindAt, disabled }:
             />
           )}
         </Stack>
+
+        {rule && (
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.25 }}>
+              下一期从哪天算
+            </Typography>
+            <FormControl disabled={disabled}>
+              <RadioGroup
+                row
+                value={mode}
+                onChange={(e) => handleModeChange(e.target.value === 'completion' ? 'completion' : 'due')}
+                aria-label="下一期基准日"
+              >
+                <FormControlLabel value="due" control={<Radio size="small" />} label="从到期日算下一期（默认）" />
+                <FormControlLabel value="completion" control={<Radio size="small" />} label="从完成那天算下一期" />
+              </RadioGroup>
+            </FormControl>
+            {mode === 'completion' && !remindAt && (
+              <Typography variant="caption" color="warning.main" display="block">
+                该待办没有提醒时间，按完成日重复时不生成下一次提醒
+              </Typography>
+            )}
+          </Box>
+        )}
 
         {rule?.freq === 'weekly' && (
           <Box>

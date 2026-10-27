@@ -1,4 +1,4 @@
-import { Box, IconButton, Paper, SnackbarContent, Typography } from '@mui/material'
+import { Box, Button, IconButton, Paper, SnackbarContent, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { useNoticeStore } from '@/store/noticeStore'
 
@@ -15,6 +15,8 @@ const SEVERITY_COLOR: Record<string, string> = {
  *
  * 挂在 Layout 内：既是通知通道降级后的可见出口（A6），
  * 也承载循环任务、记录已删除等轻量反馈。
+ * v2.13 R4：`actionLabel` / `onAction` 存在时在右侧渲染文字按钮（如「稍后 10 分钟」），
+ * 点击后执行回调并关闭该条提示。
  */
 export default function NoticeHost() {
   const notices = useNoticeStore((s) => s.notices)
@@ -54,9 +56,24 @@ export default function NoticeHost() {
               </Typography>
             }
             action={
-              <IconButton size="small" aria-label="关闭提示" onClick={() => dismiss(notice.id)}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 'none' }}>
+                {notice.actionLabel && notice.onAction && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => {
+                      const handler = notice.onAction
+                      dismiss(notice.id)
+                      handler?.()
+                    }}
+                  >
+                    {notice.actionLabel}
+                  </Button>
+                )}
+                <IconButton size="small" aria-label="关闭提示" onClick={() => dismiss(notice.id)}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
             }
           />
         </Paper>

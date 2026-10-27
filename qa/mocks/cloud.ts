@@ -27,10 +27,20 @@ export function __resetCloudMock(): void {
 
 /* ------------------------- database mock ------------------------- */
 
-let dbResult: { data: unknown; error?: unknown } = { data: [] }
+/**
+ * 单次数据库查询结果（v2.13 起支持 `count`，用于 head count 断言）。
+ * `count` 与真实 PostgREST 响应一致：未请求计数时为 null/undefined。
+ */
+export interface DbMockResult {
+  data: unknown
+  error?: unknown
+  count?: number | null
+}
+
+let dbResult: DbMockResult = { data: [] }
 
 /** FIFO 结果队列：逐次 await 消费，用于模拟「条件更新 0 行 / 1 行」等多段查询。 */
-const dbQueue: Array<{ data: unknown; error?: unknown }> = []
+const dbQueue: DbMockResult[] = []
 
 /** 记录 database 查询链的调用序列（供断言 from/select/eq/gte/lte/order/limit）。 */
 export const __dbCalls: string[] = []
@@ -49,12 +59,12 @@ export function __resetDbWrites(): void {
   __dbUpdates.length = 0
 }
 
-export function __setDbResult(result: { data: unknown; error?: unknown }): void {
+export function __setDbResult(result: DbMockResult): void {
   dbResult = result
 }
 
 /** 按 FIFO 预置多次查询结果；队列取空后回落到 __setDbResult 的固定结果。 */
-export function __queueDbResults(results: Array<{ data: unknown; error?: unknown }>): void {
+export function __queueDbResults(results: DbMockResult[]): void {
   for (const r of results) dbQueue.push(r)
 }
 
@@ -108,6 +118,30 @@ class QueryBuilder {
     __dbCalls.push(`lte(${col},${JSON.stringify(val)})`)
     return this
   }
+  lt(col: string, val: unknown): this {
+    __dbCalls.push(`lt(${col},${JSON.stringify(val)})`)
+    return this
+  }
+  gt(col: string, val: unknown): this {
+    __dbCalls.push(`gt(${col},${JSON.stringify(val)})`)
+    return this
+  }
+  is(col: string, val: unknown): this {
+    __dbCalls.push(`is(${col},${JSON.stringify(val)})`)
+    return this
+  }
+  filter(col: string, op: string, val: unknown): this {
+    __dbCalls.push(`filter(${col},${op},${JSON.stringify(val)})`)
+    return this
+  }
+  /**
+   * 全文检索（v2.13 R1）：记录调用参数供断言，同时支持「模拟列不存在」——
+   * 预置结果里放 `error: { code: '42703' }` 即可复现迁移未执行时的降级路径。
+   */
+  textSearch(col: string, query: string, opts?: { type?: string; config?: string }): this {
+    __dbCalls.push(`textSearch(${col},${query},${opts?.type ?? ''},${opts?.config ?? ''})`)
+    return this
+  }
   order(col: string, opts?: { ascending?: boolean }): this {
     __dbCalls.push(`order(${col},asc:${opts?.ascending})`)
     return this
@@ -137,7 +171,7 @@ class QueryBuilder {
     return this
   }
   then<T>(resolve: (v: unknown) => T, reject: (e: unknown) => T): Promise<T> {
-    const next = dbQueue.length > 0 ? (dbQueue.shift() as { data: unknown; error?: unknown }) : dbResult
+    const next = dbQueue.length > 0 ? (dbQueue.shift() as DbMockResult) : dbResult
     return Promise.resolve(next).then(resolve, reject)
   }
 }

@@ -3,12 +3,14 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Grid,
   IconButton,
   List,
@@ -22,9 +24,13 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import type { InfoRecord } from '@shared/types/domain'
+import type { IcsRange, InfoRecord } from '@shared/types/domain'
 import { recordService } from '@/services/recordService'
+import { calendarService } from '@/services/calendarService'
+import { resolveViewRange } from '@/lib/calendar-range'
+import { pushNotice } from '@/store/noticeStore'
 import { friendlyError } from '@/lib/unwrap'
 import { categoryColor } from '@shared/constants/categories'
 import RecordDetail from '@/components/RecordDetail'
@@ -32,6 +38,13 @@ import RecordCreateDialog from '@/components/RecordCreateDialog'
 import PageHeader from '@/components/PageHeader'
 
 type ViewMode = 'month' | 'week'
+
+/** 导出范围选项（顺序即展示顺序，默认「当前月」）。 */
+const EXPORT_RANGE_OPTIONS: Array<{ value: IcsRange; label: string }> = [
+  { value: 'month', label: '当前月' },
+  { value: 'week', label: '当前周' },
+  { value: 'all', label: '全部' },
+]
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -84,16 +97,15 @@ export default function CalendarPage() {
   const [detail, setDetail] = useState<InfoRecord | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
 
-  // 视图时间范围（月 = 当月整月；周 = 本周一 ~ 周日）
-  const range = useMemo((): [Date, Date] => {
-    if (viewMode === 'month') {
-      const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
-      const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)
-      return [startOfDay(first), startOfDay(addDays(last, 1))]
-    }
-    const mon = mondayOf(anchor)
-    return [mon, startOfDay(addDays(mon, 7))]
-  }, [viewMode, anchor])
+  // .ics 导出弹窗状态（v2.13 R6）
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportRange, setExportRange] = useState<IcsRange>('month')
+  const [exportIncludeDone, setExportIncludeDone] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+
+  // 视图时间范围（月 = 当月整月；周 = 本周一 ~ 周日），与 .ics 导出共用同一口径
+  const range = useMemo((): [Date, Date] => resolveViewRange(viewMode, anchor), [viewMode, anchor])
 
   const load = async () => {
     setLoading(true)
@@ -134,6 +146,39 @@ export default function CalendarPage() {
 
   const selectedRecords = selectedDay ? data.byDay.get(selectedDay) ?? [] : []
 
+  /** 打开导出弹窗：范围默认跟随当前视图（月视图 → 当前月；周视图 → 当前周）。 */
+  const openExport = () => {
+    setExportRange(viewMode === 'week' ? 'week' : 'month')
+    setExportIncludeDone(false)
+    setExportError('')
+    setExportOpen(true)
+  }
+
+  /** 执行导出：取数 → 构造 → 浏览器下载；空集由 service 抛错，这里只展示。 */
+  const doExport = async () => {
+    setExporting(true)
+    setExportError('')
+    try {
+      const result = await calendarService.buildExport({
+        range: exportRange,
+        // 区间口径跟着「导出范围」走（用户可能在看月视图却只想导当前周）
+        viewMode: exportRange === 'week' ? 'week' : 'month',
+        anchor,
+        includeDone: exportIncludeDone,
+      })
+      calendarService.downloadIcs(result.fileName, result.content)
+      pushNotice(
+        `已导出 ${result.recordCount} 条待办（待办 ${result.todoCount} 项 · 日程 ${result.eventCount} 个）`,
+        'success',
+      )
+      setExportOpen(false)
+    } catch (err) {
+      setExportError(friendlyError(err))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   // 月视图网格：当月 1 号是周几（周一起），前补空白格
   const monthCells = useMemo(() => {
     if (viewMode !== 'month') return []
@@ -172,15 +217,25 @@ export default function CalendarPage() {
         title="日历"
         subtitle="按日期查看与创建记录事项"
         action={
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={viewMode}
-            onChange={(_e, v) => v && setViewMode(v)}
-          >
-            <ToggleButton value="month">月视图</ToggleButton>
-            <ToggleButton value="week">周视图</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={viewMode}
+              onChange={(_e, v) => v && setViewMode(v)}
+            >
+              <ToggleButton value="month">月视图</ToggleButton>
+              <ToggleButton value="week">周视图</ToggleButton>
+            </ToggleButtonGroup>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadOutlinedIcon />}
+              onClick={openExport}
+            >
+              导出 .ics
+            </Button>
+          </Stack>
         }
       />
 
@@ -382,6 +437,61 @@ export default function CalendarPage() {
         defaultType="todo"
         defaultRemindAt={selectedDay ? `${selectedDay}T09:00` : undefined}
       />
+
+      {/* .ics 导出（v2.13 R6）：按提醒时间导出，与日历页按创建时间排布的口径不同 */}
+      <Dialog open={exportOpen} onClose={() => (exporting ? undefined : setExportOpen(false))} fullWidth maxWidth="xs">
+        <DialogTitle>导出到日历（.ics）</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            导出为 iCalendar 文件，可导入系统日历 / Google Calendar / Outlook。
+            <br />
+            按提醒时间导出；日历页是按创建时间排布的，两者位置可能不同。
+          </Typography>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            导出范围
+          </Typography>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            fullWidth
+            value={exportRange}
+            onChange={(_e, v) => v && setExportRange(v)}
+            sx={{ mb: 2 }}
+          >
+            {EXPORT_RANGE_OPTIONS.map((opt) => (
+              <ToggleButton key={opt.value} value={opt.value}>
+                {opt.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={exportIncludeDone}
+                onChange={(e) => setExportIncludeDone(e.target.checked)}
+              />
+            }
+            label={<Typography variant="body2">包含已完成待办</Typography>}
+          />
+
+          {exportError && (
+            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+              {exportError}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)} disabled={exporting}>
+            取消
+          </Button>
+          <Button variant="contained" onClick={doExport} disabled={exporting}>
+            {exporting ? '导出中…' : '导出'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -217,7 +217,7 @@ test('A1 到点触发：desktop 通道发 1 次，标题=记录标题，正文�
   assert.match(env.sent[0].body, /工作/)
   assert.match(env.sent[0].body, /高优先级/)
   assert.equal(env.sent[0].recordId, 42, '点击后要能定位记录')
-  assert.equal(env.sent[0].key, `42|${iso('10:00')}`)
+  assert.equal(env.sent[0].key, `42|${iso('10:00')}|0`, '去重键为 v2.13 三段式（第三段 = snooze 序号）')
 })
 
 test('A1 未到点不发；到点后下一个 tick 才发', async () => {
@@ -231,7 +231,7 @@ test('A1 未到点不发；到点后下一个 tick 才发', async () => {
 test('A4 去重：同一 (记录, remind_at) 第二个 tick 不再发，且键写入 localStorage', async () => {
   const env = await runTick(settingsRow(), [todoRow({ id: 44 })], at('10:00'))
   assert.equal(env.sent.length, 1)
-  assert.deepEqual(env.firedKeys(), [`44|${iso('10:00')}`], '去重键必须落 localStorage（跨刷新可用）')
+  assert.deepEqual(env.firedKeys(), [`44|${iso('10:00')}|0`], '去重键必须落 localStorage（跨刷新可用）')
 
   await tickAgain(env, settingsRow(), [todoRow({ id: 44 })], at('10:00') + 30_000)
   assert.equal(env.sent.length, 1, '不得重复弹')
