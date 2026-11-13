@@ -2,7 +2,8 @@ import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 import { store } from './store'
 import { attachNativeContextMenu } from './context-menu'
-import { IPC, buildAppUrl, type FloatingWindowStatePayload } from '../shared/ipc-contract'
+import { IPC, type FloatingWindowStatePayload } from '../shared/ipc-contract'
+import { appReachableState, appUrl } from './app-url'
 import {
   EDGE_VISIBLE,
   FLOAT_MAX,
@@ -286,11 +287,16 @@ export function createFloatingWindow(): BrowserWindow {
   return floatingWindow
 }
 
-/** 加载远程 Web companion 页（悬浮窗渲染 CompanionPanel）。 */
+/**
+ * 加载远程 Web companion 页（悬浮窗渲染 CompanionPanel）。
+ *
+ * 不在这里做可达性探测：悬浮窗靠快捷键反复唤起，每次探一次会明显变卡。
+ * 直接复用主窗口启动时得出的结论；结论为「不可达」（分享码没修好）时走本地兜底页。
+ */
 function loadRemote(): void {
   if (!floatingWindow) return
-  const url = buildAppUrl({ mode: 'companion' })
-  if (!url) {
+  const url = appUrl({ mode: 'companion' })
+  if (!url || appReachableState() === false) {
     loadLocalFallback()
     return
   }

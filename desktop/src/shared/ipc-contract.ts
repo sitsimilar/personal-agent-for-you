@@ -4,6 +4,7 @@
  * shared/types/ipc.ts 与本文件保持一致（供 Web companion 模式引用），
  * 修改时需同步两处。
  */
+import { appendQuery } from './app-url'
 
 export const IPC = {
   // renderer → main（invoke）
@@ -59,19 +60,16 @@ export const WEB_APP_URL = import.meta.env.VITE_WEB_APP_URL ?? ''
  * 在 `WEB_APP_URL` 上追加查询参数，**保留原有查询串**。
  *
  * 返回空串表示未配置地址，调用方应走本地兜底页而不是加载空 URL。
+ *
+ * 注意：主进程加载一律走 `main/app-url.ts` 的 `appUrl()`——它会先用本地偏好里的
+ * 分享码覆盖（码可能随发布更换，安装包里的那份会过期）。这里只保留给渲染/预加载
+ * 侧读取静态配置用。
  */
 export function buildAppUrl(extra?: Record<string, string>): string {
-  const base = String(WEB_APP_URL ?? '').trim()
-  if (!base) return ''
-  try {
-    const url = new URL(base)
-    for (const [key, value] of Object.entries(extra ?? {})) url.searchParams.set(key, value)
-    return url.toString()
-  } catch {
-    // 非法 URL（缺 scheme 等）不抛错，交回原值让 Electron 自己报加载失败并回退
-    return base
-  }
+  return appendQuery(WEB_APP_URL, extra)
 }
+
+export { appendQuery, composeBaseUrl, extractShareCode, withShareCode } from './app-url'
 
 /** 主进程推给悬浮窗的源码文件片段。 */
 export interface SourceFilePayload {

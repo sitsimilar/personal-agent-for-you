@@ -29,6 +29,8 @@ export interface LocalStoreSchema {
   exportDir: string
   /** 一键部署的 MinGW 工具链目录（空 = 未部署） */
   toolchainDir: string
+  /** 线上发布位的分享码（空 = 只用安装包里编译进去的那份；发布换码后由 403 自愈流程写入） */
+  webShareCode: string
   /** solutionPath → (fileRelPath → sha256) 增量缓存（最近 50 个方案，见 analysis-orchestrator） */
   cache: Record<string, Record<string, string>>
 }
@@ -47,6 +49,7 @@ const DEFAULTS: LocalStoreSchema = {
   selectionShortcut: 'CommandOrControl+Shift+A',
   exportDir: '',
   toolchainDir: '',
+  webShareCode: '',
   cache: {},
 }
 

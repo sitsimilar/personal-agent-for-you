@@ -2,7 +2,8 @@ import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 import { store } from './store'
 import { attachNativeContextMenu } from './context-menu'
-import { IPC, buildAppUrl, type WindowStatePayload } from '../shared/ipc-contract'
+import { IPC, appendQuery, type WindowStatePayload } from '../shared/ipc-contract'
+import { ensureAppReachable } from './app-url'
 
 const MAIN_MIN_W = 960
 const MAIN_MIN_H = 640
@@ -114,7 +115,7 @@ export function createMainWindow(): BrowserWindow {
   // 原生右键菜单（复制/粘贴/剪切/全选）
   attachNativeContextMenu(mainWindow)
 
-  loadMainRemote()
+  void loadMainRemote()
   mainWindow.once('ready-to-show', () => {
     if (store.get('mainWindowMaximized')) mainWindow?.maximize()
     mainWindow?.show()
@@ -124,15 +125,21 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-/** 加载主窗口远程页（失败回退到本地引导页）。 */
-export function loadMainRemote(): void {
+/**
+ * 加载主窗口远程页。
+ *
+ * 加载前先确认地址可用：发布位缺分享码会整站 403，直接 load 只会得到一张
+ * 「链接不完整」的空白页；`ensureAppReachable` 会在 403 时引导用户贴新分享链接，
+ * 修不好则回退本地引导页（那里有「重试」按钮）。
+ */
+export async function loadMainRemote(): Promise<void> {
   if (!mainWindow) return
-  const url = buildAppUrl({ desktop: '1' })
-  if (!url) {
+  const { ok, url } = await ensureAppReachable()
+  if (!ok || !url || !mainWindow || mainWindow.isDestroyed()) {
     loadMainFallback()
     return
   }
-  mainWindow.loadURL(url).catch(() => loadMainFallback())
+  mainWindow.loadURL(appendQuery(url, { desktop: '1' })).catch(() => loadMainFallback())
 }
 
 /** 远程加载失败时回退到本地引导页（含「重试」按钮）。 */

@@ -127,6 +127,8 @@ const targets = [
   { entry: 'qa/p1-12-command-palette.test.ts', out: 'qa/dist/p1-12-command-palette.test.cjs', alias: webAlias },
   // 命令面板 P1-12 下半（记录 provider / 拼音首字母 / 三层排序 / 最近使用 / 全局详情宿主）
   { entry: 'qa/p1-12-palette-record.test.ts', out: 'qa/dist/p1-12-palette-record.test.cjs', alias: webAlias },
+  // 桌面端线上地址拼装与分享码自愈（发布位开启分享码后新增）
+  { entry: 'qa/desktop-app-url.test.ts', out: 'qa/dist/desktop-app-url.test.cjs', alias: electronAlias },
 ]
 
 // 云服务配置已参数化为 import.meta.env.VITE_*；测试环境无 Vite 注入，
