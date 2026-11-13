@@ -25,6 +25,7 @@ import { usePluginStore } from '@/store/pluginStore'
 import PageHeader from '@/components/PageHeader'
 import PluginInstallDialog from '@/components/PluginInstallDialog'
 import { friendlyError } from '@/lib/unwrap'
+import PageShell from '@/components/PageShell'
 
 const PERMISSION_LABELS: Record<string, string> = {
   storage: '存储',
@@ -106,7 +107,7 @@ export default function PluginsPage() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
+    <PageShell tone="list" baseWidth={900}>
       <PageHeader
         title="插件"
         subtitle="从 GitHub 仓库安装插件，控制启停并查看运行时状态"
@@ -224,6 +225,6 @@ export default function PluginsPage() {
       <PluginInstallDialog open={installOpen} onClose={() => setInstallOpen(false)} onInstalled={() => setInstallOpen(false)} />
 
       <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar('')} message={snackbar} />
-    </Box>
+    </PageShell>
   )
 }

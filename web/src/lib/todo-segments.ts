@@ -17,6 +17,9 @@
  * 禁止用 `toISOString().slice(0, 10)` 当本地日。
  *
  * 约束：无副作用、不读 `Date.now()`（`nowMs` 由调用方注入）；不碰 DOM/网络。
+ *
+ * v2.14 P0-2 增补：`isImportantTodo()` / `filterImportantTodos()`——「重要」筛选的口径
+ * （高优先级或今天到期）与三段视图共用同一套本地日算法，故三套 UI 方案下计数必然一致。
  */
 
 import type { InfoRecord, TodoBucket, TodoBucketCounts } from '@shared/types/domain'
@@ -131,4 +134,45 @@ export function bucketCounts(
     counts[bucketTodo(record, nowMs, tzOffsetMinutes)] += 1
   }
   return counts
+}
+
+/**
+ * 「重要」判定（v2.14 P0-2）：`priority === 'high'` **或** `remindAt` 落在**今天**（本地日）。
+ *
+ * 口径细节：
+ * - "今天"是**本地日窗口** `[今日 00:00, 明日 00:00)`，与 `bucketTodo` 的第 4 条同源，
+ *   因此逾期（昨天）**不算**重要——逾期的待办本来就已在「今天」段里，再进「重要」只是重复；
+ * - 无提醒时间的高优先级也算（与 `bucketTodo` 的第 2 条一致：高优先级不该沉底）；
+ * - 纯函数、不读时钟：`nowMs` / `tzOffsetMinutes` 全部注入，保证三套 UI 方案下计数完全一致
+ *   （筛选口径与方案无关，只与数据有关）。
+ *
+ * @param record 只需 `priority` / `remindAt`
+ * @param nowMs 当前时刻（epoch ms）
+ * @param tzOffsetMinutes 时区偏移（分钟），默认取运行时
+ */
+export function isImportantTodo(
+  record: Pick<InfoRecord, 'priority' | 'remindAt'>,
+  nowMs: number,
+  tzOffsetMinutes?: number,
+): boolean {
+  if (record.priority === 'high') return true
+  const remindMs = parseRemindAt(record.remindAt)
+  if (remindMs === null) return false
+  const dayStart = localDayStartMs(nowMs, tzOffsetMinutes)
+  return remindMs >= dayStart && remindMs < dayStart + MS_PER_DAY
+}
+
+/**
+ * 过滤出「重要」待办（保持原顺序）。
+ *
+ * @param records 未完成待办集合
+ * @param nowMs 当前时刻（epoch ms）
+ * @param tzOffsetMinutes 时区偏移（分钟），默认取运行时
+ */
+export function filterImportantTodos(
+  records: InfoRecord[],
+  nowMs: number,
+  tzOffsetMinutes?: number,
+): InfoRecord[] {
+  return records.filter((record) => isImportantTodo(record, nowMs, tzOffsetMinutes))
 }

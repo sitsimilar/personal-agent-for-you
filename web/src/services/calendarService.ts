@@ -41,6 +41,9 @@ function toIcsSource(record: InfoRecord): IcsSource {
     todoStatus: record.todoStatus ?? null,
     remindAt: record.remindAt ?? null,
     updatedAt: record.updatedAt,
+    // v2.14 P0-2：父级关系与循环规则一并导出（为空时导出层不产对应属性）
+    parentId: record.parentId ?? null,
+    recurrence: record.recurrence ?? null,
   }
 }
 

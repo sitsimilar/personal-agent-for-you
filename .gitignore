@@ -8,6 +8,12 @@ out/
 qa/ux-shots/
 desktop/build/_prev/
 *.log
+*.tsbuildinfo
+
+# Visual Studio 生成缓存（vsix 扩展）
+vsix/obj/
+vsix/.vs/
+vsix/**/UpgradeLog.htm
 
 # 环境变量（含云服务密钥，仅提交 *.example 模板）
 .env
@@ -18,6 +24,9 @@ desktop/build/_prev/
 # 内部 E2E/UX 探测脚本（含真实会话 key / 实例域名，不对外发布）
 qa/ux-*.cjs
 qa/ux-*.mjs
+
+# 真实日历导出（含个人日程，只作本地验收用，不提交）
+qa/fixtures/ics/google-real-*.ics
 
 # WorkBuddy 应用标记文件
 *.genie

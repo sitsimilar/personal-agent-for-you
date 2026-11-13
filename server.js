@@ -6,6 +6,7 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const { handleLinkPreview } = require('./server/link-preview')
+const { handleFeedFetch } = require('./server/feed-fetch')
 
 const root = __dirname
 const webDir = path.join(root, 'web')
@@ -41,8 +42,13 @@ const MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.webm': 'video/webm',
+  '.vtt': 'text/vtt; charset=utf-8',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
@@ -63,6 +69,12 @@ http
       handleLinkPreview(req, res)
       return
     }
+    // 订阅抓取代理（P0-3）：同样必须在静态托管之前判定，原因与 link-preview 一致
+    // （跨域 + 条件请求头都要服务端代发）。
+    if (apiPath === '/api/feed-fetch') {
+      handleFeedFetch(req, res)
+      return
+    }
 
     let urlPath
     try {
@@ -71,20 +83,71 @@ http
       urlPath = '/'
     }
     if (urlPath === '/') urlPath = '/index.html'
+    // 官网宣传页挂在同域 /welcome/（构建时由 web/public/welcome 原样拷入 dist）
+    if (urlPath === '/welcome') urlPath = '/welcome/index.html'
 
     // 更新源端点：返回当前部署版本号（供客户端更新检测比较）
     if (urlPath === '/version.json') {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+      })
       res.end(JSON.stringify({ version: appVersion }))
       return
     }
 
     let file = path.join(distDir, urlPath)
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
-      file = path.join(distDir, 'index.html') // SPA 回退
+      // /welcome/ 下缺失的文件回落到宣传页自身，不要串进应用外壳
+      file = urlPath === '/welcome/index.html' || urlPath.startsWith('/welcome/')
+        ? path.join(distDir, 'welcome', 'index.html')
+        : path.join(distDir, 'index.html') // SPA 回退
     }
     const ext = path.extname(file).toLowerCase()
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' })
+    const type = MIME[ext] || 'application/octet-stream'
+    const size = fs.statSync(file).size
+    // html 每次回源校验，其余静态资源（含 vite 带 hash 的产物）缓存一天
+    const cache = ext === '.html' ? 'no-cache' : 'public, max-age=86400'
+
+    // Range 支持：宣传片的 mp4 走这里。缺了它 iOS Safari 会直接拒绝播放，
+    // 桌面 Chrome 能播但进度条拖不动（每次都从 0 重下）。
+    const range = req.headers.range
+    if (range && size) {
+      const m = /^bytes=(\d*)-(\d*)$/.exec(String(range).trim())
+      if (m) {
+        let start
+        let end
+        if (m[1] === '') {
+          const n = parseInt(m[2], 10) || 0
+          start = Math.max(0, size - n)
+          end = size - 1
+        } else {
+          start = parseInt(m[1], 10)
+          end = m[2] === '' ? size - 1 : Math.min(parseInt(m[2], 10), size - 1)
+        }
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+          res.writeHead(416, { 'Content-Range': 'bytes */' + size })
+          res.end()
+          return
+        }
+        res.writeHead(206, {
+          'Content-Type': type,
+          'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+          'Content-Length': end - start + 1,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': cache,
+        })
+        fs.createReadStream(file, { start, end }).pipe(res)
+        return
+      }
+    }
+
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Content-Length': size,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': cache,
+    })
     fs.createReadStream(file).pipe(res)
   })
   .listen(PORT, '0.0.0.0', () => {

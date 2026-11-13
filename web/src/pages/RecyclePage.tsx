@@ -15,6 +15,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import type { InfoRecord } from '@shared/types/domain'
 import { recordService } from '@/services/recordService'
 import { friendlyError } from '@/lib/unwrap'
+import PageShell from '@/components/PageShell'
 
 const RECYCLE_DAYS = 30
 
@@ -69,7 +70,7 @@ export default function RecyclePage() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 760, mx: 'auto' }}>
+    <PageShell tone="list" baseWidth={760}>
       <Typography variant="h6" fontWeight={700} gutterBottom>
         回收站
       </Typography>
@@ -124,6 +125,6 @@ export default function RecyclePage() {
           ))}
         </List>
       )}
-    </Box>
+    </PageShell>
   )
 }

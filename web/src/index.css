@@ -2,6 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * ============================================================
+ *  界面方案令牌层（v2.13.2 UI-1）
+ * ============================================================
+ *
+ * 三套方案（静默 / 分区 / 流畅）的差异**只在这里**与布局能力位里体现，
+ * 组件代码一律读变量或读能力位，不写 `if (scheme === ...)` 散落判断。
+ *
+ * 层次关系（改之前先读 `lib/ui-scheme.ts` 文件头）：
+ *   :root            → 地基（= 方案 A 静默化的收敛令牌，三方案共享）
+ *   [data-scheme=zoned] → 地基 + 布局变量（容器宽度 / 栅格间距 / 卡片抬起）
+ *   [data-scheme=fluid] → 地基 + 动效变量（分档时长 / 骨架屏 / 位移动画）
+ *
+ * 因此切方案时**视觉基调不变**，只有布局或动效变化 —— 这是刻意设计，
+ * 避免"颜色也变、位置也变"让用户以为点了什么奇怪的东西。
+ */
+
+:root {
+  /* ---- 颜色（收敛后：主色只在主操作与当前导航项出现） ---- */
+  --brand: #5b54d9;
+  --brand-dark: #4a43c4;
+  --brand-soft: rgba(91, 84, 217, 0.08);
+  --brand-soft-2: rgba(91, 84, 217, 0.12);
+  --ink: #18181b;
+  --ink2: #64646e;
+  --ink3: #9a9aa6;
+  --line: #efeff3;
+  --line2: #e7e7ec;
+  --surface: #ffffff;
+  --canvas: #f7f7f9;
+
+  /* ---- 圆角三档 ---- */
+  --r-ctl: 8px;
+  --r-card: 12px;
+  --r-pop: 16px;
+
+  /* ---- 层级双层 ---- */
+  --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.05);
+  --shadow-hover: 0 6px 16px -6px rgba(24, 24, 27, 0.16), 0 1px 2px rgba(24, 24, 27, 0.05);
+
+  /* ---- 字号五档 ---- */
+  --fs-display: 24px;
+  --fs-title: 16px;
+  --fs-body: 14px;
+  --fs-meta: 13px;
+  --fs-caption: 11.5px;
+
+  /* ---- 布局（方案 A 保持现状：各页自定宽度，栅格不额外加宽） ---- */
+  --content-max: none;
+  --layout-gap: 16px;
+  --header-band-divider: transparent;
+
+  /* ---- 动效（方案 A 沿用单一 180ms，不改既有手感） ---- */
+  --motion-enter: 180ms;
+  --motion-exit: 180ms;
+  --motion-move: 180ms;
+  --motion-ease-enter: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 0.2, 1);
+  --page-in-shift: 8px;
+}
+
+/**
+ * 方案 B · 分区骨架：动布局，不动动效。
+ * 容器统一 1120px、栅格间距放宽到 20px、页眉带出现分隔线。
+ */
+:root[data-scheme='zoned'] {
+  --content-max: 1120px;
+  --layout-gap: 20px;
+  --header-band-divider: var(--line);
+}
+
+/**
+ * 方案 C · 流畅优先：动交互，不动布局。
+ * 动效分三档；页面进场位移略大（8px → 10px）让"切换"更可感。
+ */
+:root[data-scheme='fluid'] {
+  --motion-enter: 220ms;
+  --motion-exit: 140ms;
+  --motion-move: 260ms;
+  --motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --page-in-shift: 10px;
+}
+
 html,
 body,
 #root {
@@ -13,8 +97,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
-  background-color: #f5f6f8;
-  color: #1f2937;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-size: var(--fs-body);
+  line-height: 1.55;
 }
 
 * {
@@ -54,31 +140,105 @@ body {
   background-color: transparent;
 }
 
-/* 全局转场动画（统一 180ms，缓动 cubic-bezier(0.4,0,0.2,1)） */
+/* ============================================================
+ *  通用过渡：一切动效走变量，方案切换即时改变手感
+ * ============================================================ */
+
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(var(--page-in-shift));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes panel-in {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes boot-logo-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.page-in { animation: page-in 180ms cubic-bezier(0.4, 0, 0.2, 1); }
-.panel-in { animation: panel-in 180ms cubic-bezier(0.4, 0, 0.2, 1); }
-.boot-logo-in { animation: boot-logo-in 180ms cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
 
-/* 无障碍：系统开启减弱动效时，禁用位移/缩放类动画 */
+.page-in {
+  animation: page-in var(--motion-enter) var(--motion-ease-enter);
+}
+.panel-in {
+  animation: panel-in var(--motion-enter) var(--motion-ease-enter);
+}
+.boot-logo-in {
+  animation: boot-logo-in var(--motion-enter) var(--motion-ease-enter);
+}
+
+/* 方案 B：卡片"可点"自己说出来（悬停抬起 2px） */
+:root[data-scheme='zoned'] .card-lift {
+  transition: transform var(--motion-move) var(--motion-ease-enter),
+    box-shadow var(--motion-move) var(--motion-ease-enter);
+  will-change: transform;
+}
+:root[data-scheme='zoned'] .card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* 方案 C：骨架屏占位（不改变布局尺寸，CLS 保持 0） */
+.skeleton {
+  border-radius: var(--r-ctl);
+  background:
+    linear-gradient(90deg, #eeeef2 25%, #f6f6f9 37%, #eeeef2 63%) 0 0 / 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+/**
+ * 无障碍：系统开启「减弱动效」时，
+ * - 所有动画时长归 0（不只是删掉位移，连淡入淡出也去掉，避免前庭不适）；
+ * - 保留透明度变化的"瞬时"效果（时长 0 = 直接到位），所以不需要额外分支。
+ */
 @media (prefers-reduced-motion: reduce) {
+  :root,
+  :root[data-scheme='zoned'],
+  :root[data-scheme='fluid'] {
+    --motion-enter: 0ms;
+    --motion-exit: 0ms;
+    --motion-move: 0ms;
+    --page-in-shift: 0px;
+  }
   .page-in,
   .panel-in,
   .boot-logo-in {
     animation: none !important;
+  }
+  .skeleton {
+    animation: none;
+    background: #eeeef2;
+  }
+  :root[data-scheme='zoned'] .card-lift:hover {
+    transform: none;
   }
 }

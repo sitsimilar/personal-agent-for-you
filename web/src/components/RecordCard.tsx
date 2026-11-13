@@ -44,7 +44,7 @@ export default function RecordCard({ record, onClick }: RecordCardProps) {
   const hostLabel = record.linkMeta?.site || prettyHost(record.url)
 
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
+    <Card variant="outlined" className="card-lift" sx={{ height: '100%' }}>
       <CardActionArea onClick={onClick} sx={{ height: '100%' }}>
         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LinkCover record={record} />

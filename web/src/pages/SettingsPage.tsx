@@ -31,6 +31,9 @@ import { profileService, validateNickname, formatAccountId } from '@/services/pr
 import { reminderService } from '@/services/reminderService'
 import { pushNotice } from '@/store/noticeStore'
 import { useProfileStore } from '@/store/profileStore'
+import PageShell from '@/components/PageShell'
+import UiSchemeCard from '@/components/UiSchemeCard'
+import { useUiSchemeStore } from '@/store/uiSchemeStore'
 
 const DEFAULT_SETTINGS = {
   vsPath: '',
@@ -86,6 +89,8 @@ export default function SettingsPage() {
         if (cancelled) return
         if (row) {
           setSettingsId(row.id ?? null)
+          // 让界面方案 store 也知道这行 id，避免它落到"无 id 就 insert"的分支（23505 风险）
+          useUiSchemeStore.getState().setSettingsId(row.id ?? null)
           setNickname(row.nickname ?? '')
           setProfile({ nickname: row.nickname ?? '' })
           setVsPath(row.vs_path ?? '')
@@ -129,6 +134,7 @@ export default function SettingsPage() {
         quiet_end: quietEnd || '08:00',
       })
       setSettingsId(id)
+      useUiSchemeStore.getState().setSettingsId(id)
 
       // 同步到桌面伴侣主进程（代码上传 / 悬浮窗开关 / VS 路径）
       if (window.desktopBridge) {
@@ -322,8 +328,8 @@ export default function SettingsPage() {
   const accountIdLabel = settingsId != null ? formatAccountId(settingsId) : '未分配'
 
   return (
-    <Box sx={{ p: 3, maxWidth: 640, mx: 'auto' }}>
-      <PageHeader title="设置" subtitle="偏好、快捷键与数据管理" />
+    <PageShell tone="form" baseWidth={640}>
+      <PageHeader title="设置" subtitle="外观、偏好、快捷键与数据管理" showCreate={false} />
       {error && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Typography color="error" variant="body2" sx={{ flex: 1 }}>
@@ -431,6 +437,8 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <UiSchemeCard />
 
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
@@ -640,6 +648,6 @@ export default function SettingsPage() {
       </Card>
 
       <UpdateDialog result={updateResult} onClose={() => setUpdateResult(null)} />
-    </Box>
+    </PageShell>
   )
 }

@@ -11,6 +11,14 @@ import { initCrossWindowAuthSync } from './services/authSync'
 import { useAuthStore } from './store/authStore'
 import { setUnwrapAuthHook } from './lib/unwrap'
 import { onServiceError } from './services/authExpired'
+import { useUiSchemeStore } from './store/uiSchemeStore'
+
+/**
+ * 界面方案必须在**首帧渲染前**落地：
+ * 否则会先按 `:root` 默认令牌画一帧、再跳到用户选的方案，出现肉眼可见的闪烁。
+ * 这里只读 localStorage（同步、无网络），代价是微秒级。
+ */
+useUiSchemeStore.getState().hydrateLocal()
 
 /**
  * 启动引导：

@@ -49,7 +49,9 @@ const targets = [
   { entry: 'qa/mindforest-cross.test.ts', out: 'qa/dist/mindforest-cross.test.cjs', alias: webAlias },
   { entry: 'qa/mindforest-cloud.test.ts', out: 'qa/dist/mindforest-cloud.test.cjs', alias: webAlias },
   { entry: 'qa/errors.test.ts', out: 'qa/dist/errors.test.cjs', alias: {} },
+  { entry: 'qa/auth-expired-sdk.test.ts', out: 'qa/dist/auth-expired-sdk.test.cjs', alias: {} },
   { entry: 'qa/update-service.test.ts', out: 'qa/dist/update-service.test.cjs', alias: webAlias },
+  { entry: 'qa/update-service-check.test.ts', out: 'qa/dist/update-service-check.test.cjs', alias: webAlias },
   { entry: 'qa/image-service.test.ts', out: 'qa/dist/image-service.test.cjs', alias: webAlias },
   { entry: 'qa/profile-service.test.ts', out: 'qa/dist/profile-service.test.cjs', alias: webAlias },
   { entry: 'qa/cpp-runner.test.ts', out: 'qa/dist/cpp-runner.test.cjs', alias: {} },
@@ -85,6 +87,46 @@ const targets = [
   { entry: 'qa/v213-ics.test.ts', out: 'qa/dist/v213-ics.test.cjs', alias: webAlias },
   // v2.13 QA 独立验证（边界 / 对抗 / 现状锁定）
   { entry: 'qa/v213-qa-edge.test.ts', out: 'qa/dist/v213-qa-edge.test.cjs', alias: webAlias },
+  // v2.13.2 UI 方案内核（三方案归一化 / 能力矩阵 / 变化摘要）
+  { entry: 'qa/ui-scheme.test.ts', out: 'qa/dist/ui-scheme.test.cjs', alias: webAlias },
+  // 日历互通 P0-1 上半（.ics 解析层：时区四类判定 / 循环展开 / VTODO）
+  { entry: 'qa/ics-parse.test.ts', out: 'qa/dist/ics-parse.test.cjs', alias: webAlias },
+  // 日历互通 P0-1 上半 · QA 独立对抗性验证（Windows 名 / DST / 覆盖跨天 / 容错 / 纯函数 / 性能）
+  { entry: 'qa/ics-parse-adversarial.test.ts', out: 'qa/dist/ics-parse-adversarial.test.cjs', alias: webAlias },
+  // 日历互通 P0-1 下半（纯映射层 / 导入落库链路）
+  { entry: 'qa/ics-map.test.ts', out: 'qa/dist/ics-map.test.cjs', alias: webAlias },
+  { entry: 'qa/ics-import.test.ts', out: 'qa/dist/ics-import.test.cjs', alias: webAlias },
+  // 日历互通 P0-2（.ics 导出补 VALARM/RRULE/RELATED-TO/TRANSP + parent_id 回填 + 待办「重要」筛选）
+  { entry: 'qa/p0-2-ics-export.test.ts', out: 'qa/dist/p0-2-ics-export.test.cjs', alias: webAlias },
+  // 订阅源入库 P0-3 上半（OPML 容错导入 / fetchFeed 状态机 / 服务端抓取代理）
+  { entry: 'qa/p0-d-feed-opml.test.ts', out: 'qa/dist/p0-d-feed-opml.test.cjs', alias: webAlias },
+  { entry: 'qa/p0-d-feed-fetch.test.ts', out: 'qa/dist/p0-d-feed-fetch.test.cjs', alias: webAlias },
+  { entry: 'qa/p0-d-feed-server.test.ts', out: 'qa/dist/p0-d-feed-server.test.cjs', alias: {} },
+  // 订阅源入库 P0-3 下半（纯函数层：合并/调度/草稿/OPML 导出；服务层：查重落库/一轮 tick）
+  { entry: 'qa/p0-d-feed-store.test.ts', out: 'qa/dist/p0-d-feed-store.test.cjs', alias: webAlias },
+  { entry: 'qa/p0-d-feed-upsert.test.ts', out: 'qa/dist/p0-d-feed-upsert.test.cjs', alias: webAlias },
+  // 订阅源入库 P0-3 下半 · QA 独立对抗性验证（304 阶梯 / 三态机 / persistError / 三闸 / url 边界 / 特殊字符往返）
+  { entry: 'qa/p0-d-feed-adversarial.test.ts', out: 'qa/dist/p0-d-feed-adversarial.test.cjs', alias: webAlias },
+  // 订阅源入库 P0-3 下半 · QA 隔离验证（提醒链路 ↔ 订阅抓取：异常不外溢 / 不插队 / quiet 透传）
+  {
+    entry: 'qa/p0-d-feed-reminder-isolation.test.ts',
+    out: 'qa/dist/p0-d-feed-reminder-isolation.test.cjs',
+    alias: { ...webAlias, '@/services/feedService': resolve(root, 'qa', 'mocks', 'feedService.ts') },
+  },
+  // 移动端骨架 P0-4 上半（侧栏断点切换纯函数 + Layout 源码约束）
+  { entry: 'qa/p0-f-shell-layout.test.ts', out: 'qa/dist/p0-f-shell-layout.test.cjs', alias: webAlias },
+  // 移动端骨架 P0-4 上半 · QA 独立对抗性验证（纯函数性 / 单一事实源 / 小数入参 / 阈值扫描 / 夹取）
+  { entry: 'qa/p0-f-shell-layout-adversarial.test.ts', out: 'qa/dist/p0-f-shell-layout-adversarial.test.cjs', alias: webAlias },
+  // 移动端骨架 P0-4 下半（底部导航纯函数 / 安全区留白 / FAB 偏移 / 活跃判定 / 12 页可达 / 源码约束）
+  { entry: 'qa/p0-f-bottom-nav.test.ts', out: 'qa/dist/p0-f-bottom-nav.test.cjs', alias: webAlias },
+  // 加载问候语 P0-5（时段边界 / 排除上一条 / 空池兜底 / 连续 10 次不重复 / 存储降级）
+  { entry: 'qa/greeting.test.ts', out: 'qa/dist/greeting.test.cjs', alias: webAlias },
+  // 快捷键注册表 P1-14（规范化 / 输入框闸门 / 序列键 / 作用域与冲突检测 / 文档一致性）
+  { entry: 'qa/shortcuts.test.ts', out: 'qa/dist/shortcuts.test.cjs', alias: webAlias },
+  // 命令面板 P1-12 上半（跳转命令派生 / 过滤 / 分组 / 键盘契约 / 同步开面板）
+  { entry: 'qa/p1-12-command-palette.test.ts', out: 'qa/dist/p1-12-command-palette.test.cjs', alias: webAlias },
+  // 命令面板 P1-12 下半（记录 provider / 拼音首字母 / 三层排序 / 最近使用 / 全局详情宿主）
+  { entry: 'qa/p1-12-palette-record.test.ts', out: 'qa/dist/p1-12-palette-record.test.cjs', alias: webAlias },
 ]
 
 // 云服务配置已参数化为 import.meta.env.VITE_*；测试环境无 Vite 注入，

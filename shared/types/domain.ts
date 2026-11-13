@@ -43,6 +43,55 @@ export interface LinkMeta {
   fetchedAt?: string
   status: 'ok' | 'failed'
   errorCode?: string
+  /**
+   * v2.14 P0-3：订阅条目的外部稳定标识（= `records.external_uid`）。
+   * 订阅条目也复用 `linkMeta` 报外链身份：条目来自哪条链接、原始 guid/link 是什么，
+   * 与 `recordMeta` 自解释的字段保持同一份值，便于只看一列就能追溯来源。
+   */
+  externalUid?: string | null
+  /**
+   * v2.14 P0-3：归属订阅源 id（`settings.feeds[].id`）。
+   * 手写记录与 .ics 导入不填；订阅条目的 `status` 固定为 `'ok'`
+   * （抓取成功才会产出条目，失败根本没有记录可写）。
+   */
+  feedId?: string | null
+}
+
+/**
+ * 正文派生状态 / 导入来源等元数据（JSONB 桶，存 `records.record_meta`）。
+ *
+ * 与 `LinkMeta` 分工：链接抓取结果（标题/摘要/站点）在 `linkMeta`，
+ * 这里只放"这条记录从哪来、原文还留了哪些结构化信息"，两者互不重叠。
+ * 全部字段可选：迁移未执行 / 旧数据 / 手写记录都可能是空对象。
+ */
+export interface RecordMeta {
+  /** 来源标识：`'ics-import'`（.ics 导入）| `'feed'`（订阅抓取）。 */
+  source?: string
+  /** 外部系统稳定标识（与 `externalUid` 同值，冗余一份便于 JSON 内自解释）。 */
+  externalUid?: string
+  /** iCalendar 组件类型。 */
+  icsKind?: 'event' | 'todo' | 'journal'
+  /** 循环规则原文（已去 `RRULE:` 前缀，如 `FREQ=WEEKLY;COUNT=6`）。 */
+  rrule?: string
+  /** 循环例外时刻（UTC ISO 列表）。 */
+  exdates?: string[]
+  /** `COMPLETED` 时刻（UTC ISO）。 */
+  completedAt?: string
+  /** 原始 `DTSTART`（UTC ISO）；笔记只记录不排期。 */
+  dtstart?: string
+  /** 导入时刻（UTC ISO，由 service 注入）。 */
+  importedAt?: string
+  /**
+   * v2.14 P0-3：归属订阅源 id（`settings.feeds[].id`）。
+   * 只有 `source === 'feed'` 的记录才会写；用户删掉该订阅后这里仍保留，便于回溯"这条从哪来"。
+   */
+  feedId?: string
+  /** v2.14 P0-3：抓取时该订阅的显示标题（订阅改名后历史记录仍保留当时的名字）。 */
+  feedTitle?: string
+  /** v2.14 P0-3：源站声明的 guid 原文（无 guid 的源为 null）。 */
+  guid?: string | null
+  /** v2.14 P0-3：条目发布时间（UTC ISO；源站没给时间或不可解析为 null）。 */
+  publishedAt?: string | null
 }
 
 /** 信息记录主表（统一存放想法/资料/待办）。 */
@@ -77,6 +126,19 @@ export interface InfoRecord {
   snoozedUntil?: string | null
   /** v2.13 R4：已 snooze 次数（去重键第三段），缺失按 0 处理。 */
   snoozeCount?: number
+  /**
+   * v2.14：外部系统稳定标识（.ics 导入的查重键）。
+   * 可选 + 可空以兼容「迁移未执行」与手写记录（缺失一律按 null 处理）。
+   */
+  externalUid?: string | null
+  /** v2.14：正文派生元数据（迁移未执行 / 脏数据一律 null）。 */
+  recordMeta?: RecordMeta | null
+  /**
+   * v2.14 P0-2：父记录 id（自引用）。当前用于 .ics 的 `RELATED-TO;RELTYPE=PARENT`，
+   * 即"这条待办属于哪个父任务"。与 `recurrenceParentId`（循环链根，由系统生成）语义不同，
+   * 不可互相替代。可选 + 可空以兼容「迁移未执行」与手写记录。
+   */
+  parentId?: number | null
   isDeleted: boolean
   deletedAt?: string | null
   createdAt: string
@@ -149,6 +211,12 @@ export interface RecordCreateInput {
   snoozedUntil?: string | null
   /** v2.13 R4：snooze 次数（去重键第三段）。 */
   snoozeCount?: number
+  /** v2.14：外部系统稳定标识（.ics 导入时传入，手写记录不传）。 */
+  externalUid?: string | null
+  /** v2.14：正文派生元数据（导入来源等）。 */
+  recordMeta?: RecordMeta | null
+  /** v2.14 P0-2：父记录 id（.ics `RELATED-TO;RELTYPE=PARENT` 回填用，手写记录不传）。 */
+  parentId?: number | null
 }
 
 /** 记录列表筛选条件。 */

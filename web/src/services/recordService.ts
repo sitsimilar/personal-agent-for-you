@@ -9,11 +9,44 @@ import type {
   RecordCreateInput,
   RecordListFilter,
   RecordListResult,
+  RecordMeta,
   RecordType,
   RecurrenceRule,
   RelateResultItem,
   TodoStatus,
 } from '@shared/types/domain'
+
+/**
+ * 「云库缺列」（PostgreSQL `42703`）的专用错误（v2.14 .ics 导入）。
+ *
+ * 为什么单独造一个类型而不是直接抛原错误：这条错误必须**原样展示**给用户
+ * （告诉他去执行 `docs/v2.14/migration.sql`），而 `friendlyError()` 会把带 `/` 的
+ * 长文案统一脱敏成"操作失败，请稍后重试"——用户就再也看不到修复路径了。
+ * 用带 `code` 的标记错误让 UI 有据可依，同时不改变 `friendlyError` 的现有行为。
+ */
+export class RecordsSchemaMissingError extends Error {
+  /** 稳定错误码（UI 据此决定「原样展示」）。 */
+  readonly code = 'RECORDS_SCHEMA_MISSING'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'RecordsSchemaMissingError'
+  }
+}
+
+/** 是否是「云库缺列」错误（按 `code` 判定，跨 bundle 也不会因 instanceof 失效）。 */
+export function isRecordsSchemaMissingError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  return (error as { code?: unknown }).code === 'RECORDS_SCHEMA_MISSING'
+}
+
+/** 从任意错误里读错误码（兼容 `code` 与嵌套 `error.code`）。 */
+function readErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') return ''
+  const e = error as { code?: unknown; error?: { code?: unknown } }
+  const code = e.code ?? e.error?.code
+  return typeof code === 'string' ? code : typeof code === 'number' ? String(code) : ''
+}
 
 /** 记录查询相关上限集中配置。 */
 const LIMITS = {
@@ -27,6 +60,11 @@ const LIMITS = {
   updatedSince: 500,
   /** v2.13 R6 .ics 导出上限（单次导出条数，防浏览器卡死）。 */
   export: 1000,
+  /**
+   * v2.14 .ics 导入查重：单次 `in(...)` 的 UID 数量上限。
+   * 200 是 PostgREST/网关 GET 长度与 PG 参数个数的安全折中（一份日历常见几十到几百条）。
+   */
+  externalUidBatch: 200,
 } as const
 
 /** JSONB 循环规则归一：脏数据（字符串/缺字段/非法 freq）统一为 null。 */
@@ -69,6 +107,50 @@ function toLinkMeta(value: unknown): LinkMeta | null {
   return meta
 }
 
+/**
+ * JSONB 正文派生元数据归一（v2.14 .ics 导入）。
+ *
+ * 容错口径与 `toLinkMeta` 一致：字符串先尝试 JSON.parse，非对象/全空 → null。
+ * **不抛错**是硬要求：`mapRecord` 是所有读路径的必经之地，一条脏数据不能让整页记录打不开。
+ * 只搬已知字段、且逐个校验类型——将来 JSON 结构演进时，未知字段被静默忽略而不是漏进 UI。
+ *
+ * @param value `records.record_meta` 原值（可能是对象 / JSON 字符串 / null）
+ */
+function toRecordMeta(value: unknown): RecordMeta | null {
+  let raw: unknown = value
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const obj = raw as Record<string, unknown>
+  const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined)
+  const meta: RecordMeta = {}
+  const source = text(obj.source)
+  if (source) meta.source = source
+  const externalUid = text(obj.externalUid)
+  if (externalUid) meta.externalUid = externalUid
+  if (obj.icsKind === 'event' || obj.icsKind === 'todo' || obj.icsKind === 'journal') {
+    meta.icsKind = obj.icsKind
+  }
+  const rrule = text(obj.rrule)
+  if (rrule) meta.rrule = rrule
+  if (Array.isArray(obj.exdates)) {
+    const exdates = obj.exdates.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+    if (exdates.length > 0) meta.exdates = exdates
+  }
+  const completedAt = text(obj.completedAt)
+  if (completedAt) meta.completedAt = completedAt
+  const dtstart = text(obj.dtstart)
+  if (dtstart) meta.dtstart = dtstart
+  const importedAt = text(obj.importedAt)
+  if (importedAt) meta.importedAt = importedAt
+  return Object.keys(meta).length > 0 ? meta : null
+}
+
 /** 数据库行（snake_case）→ 领域类型（camelCase）。 */
 export function mapRecord(row: RecordsRow): InfoRecord {
   return {
@@ -92,6 +174,10 @@ export function mapRecord(row: RecordsRow): InfoRecord {
     someday: row.someday ?? false,
     snoozedUntil: row.snoozed_until ?? null,
     snoozeCount: row.snooze_count ?? 0,
+    // v2.14 新列：同上，缺列 / 脏数据一律回落 null
+    externalUid: row.external_uid ?? null,
+    recordMeta: toRecordMeta(row.record_meta),
+    parentId: row.parent_id ?? null,
     isDeleted: row.is_deleted,
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
@@ -224,6 +310,41 @@ async function resetSnoozeState(id: number): Promise<void> {
   }
 }
 
+/**
+ * 连带把子任务放进回收站（v2.14 P0-2，best-effort）。
+ *
+ * 为什么由应用层做而不是外键级联：`records.parent_id` 刻意没加外键（见 migration.sql 注释），
+ * 且"软删除"不是数据库行为；这里补一层应用语义，避免删父任务后列表里留下永远点不开的孤儿。
+ *
+ * 迁移未执行（缺 `parent_id` 列 → 42703）时静默跳过：父记录已删成功，
+ * 不能让"清理子任务"失败反过来把整个删除操作判为失败。
+ *
+ * @param parentId 被删除的记录 id
+ * @param deletedAt 与父记录一致的删除时刻（回收站排序/还原口径统一）
+ */
+async function softDeleteChildren(parentId: number, deletedAt: string): Promise<void> {
+  try {
+    const { data, error } = await cloud.database
+      .from('records')
+      .select('id')
+      .eq('parent_id', parentId)
+      .eq('is_deleted', false)
+    if (error) return
+    const rows = (data as Array<{ id?: unknown }> | null) ?? []
+    const ids = rows
+      .map((row) => (row && typeof row.id === 'number' ? row.id : null))
+      .filter((id): id is number => id !== null && id !== parentId)
+    if (ids.length === 0) return
+    await cloud.database
+      .from('records')
+      .update({ is_deleted: true, deleted_at: deletedAt })
+      .in('id', ids)
+      .select()
+  } catch {
+    /* 缺列 / 网络抖动：不影响父记录的删除结果 */
+  }
+}
+
 /** 本地日期 key（避免 UTC toISOString 时区偏移导致跨天）。 */
 function localDayKey(d: Date): string {
   const y = d.getFullYear()
@@ -273,6 +394,11 @@ function toSnake(input: RecordUpdateInput): Record<string, unknown> {
   if (input.someday !== undefined) fields.someday = input.someday
   if (input.snoozedUntil !== undefined) fields.snoozed_until = input.snoozedUntil
   if (input.snoozeCount !== undefined) fields.snooze_count = input.snoozeCount
+  // v2.14 新列：同样只在显式传入时写入（手写记录不会带上，迁移未执行也不受影响）
+  if (input.externalUid !== undefined) fields.external_uid = input.externalUid
+  if (input.recordMeta !== undefined) fields.record_meta = input.recordMeta
+  // v2.14 P0-2：父级 id 同理（只在显式传入时写，手写记录永远不带这个键）
+  if (input.parentId !== undefined) fields.parent_id = input.parentId
   return fields
 }
 
@@ -294,6 +420,11 @@ export const recordService = {
         remind_at: input.remindAt ?? null,
         recurrence: input.recurrence ?? null,
         recurrence_parent_id: input.recurrenceParentId ?? null,
+        // v2.14：外部标识 / 元数据只在显式传入时才写（手写记录不带这两个键，
+        // 迁移未执行时也不会因为写不存在的列而失败）
+        ...(input.externalUid !== undefined ? { external_uid: input.externalUid } : {}),
+        ...(input.recordMeta !== undefined ? { record_meta: input.recordMeta } : {}),
+        ...(input.parentId !== undefined ? { parent_id: input.parentId } : {}),
       })
       .select()
     return mapRecord(unwrapRows({ data, error })[0])
@@ -522,6 +653,118 @@ export const recordService = {
     return rows.map(mapRecord)
   },
 
+  /**
+   * 批量查询「已存在的外部标识」（v2.14 .ics 导入查重用）。
+   *
+   * 为什么必须由这里提供而不能让导入逻辑自己拼：`cloud.database.from('records')`
+   * 是唯一查询入口，把 42703 的判定收在一处，才不会出现"某条路径缺列没报错、
+   * 静默把同一份日历导入三遍"的事故。
+   *
+   * 分批（每批 `LIMITS.externalUidBatch` 条）：`in(...)` 会被拼进 URL，
+   * 一份几千条的日历一次性拼进去会被网关截断，表现为"查重结果不全 → 重复导入"。
+   *
+   * @param uids 待查的外部标识（自动去重、去空）
+   * @returns 命中的外部标识（顺序不保证）
+   * @throws RecordsSchemaMissingError 迁移未执行（缺 `external_uid` 列）
+   */
+  async listExternalUids(uids: string[]): Promise<string[]> {
+    const unique: string[] = []
+    for (const raw of Array.isArray(uids) ? uids : []) {
+      if (typeof raw !== 'string') continue
+      const text = raw.trim()
+      if (!text) continue
+      if (!unique.includes(text)) unique.push(text)
+    }
+    if (unique.length === 0) return []
+
+    const found: string[] = []
+    for (let index = 0; index < unique.length; index += LIMITS.externalUidBatch) {
+      const chunk = unique.slice(index, index + LIMITS.externalUidBatch)
+      const { data, error } = await cloud.database
+        .from('records')
+        .select('external_uid')
+        .in('external_uid', chunk)
+      if (error) {
+        // 迁移未执行：**必须**抛错。缺列时查重结果永远为空，继续走插入就会重复导入。
+        if (readErrorCode(error) === '42703') {
+          throw new RecordsSchemaMissingError(
+            '云库缺少 external_uid 字段，请先执行 docs/v2.14/migration.sql 后再导入',
+          )
+        }
+        unwrap({ data: null, error })
+      }
+      const rows = (data as Array<{ external_uid?: unknown }> | null) ?? []
+      for (const row of rows) {
+        const value = row && typeof row === 'object' ? row.external_uid : null
+        if (typeof value === 'string' && value && !found.includes(value)) found.push(value)
+      }
+    }
+    return found
+  },
+
+  /**
+   * 批量查询「外部标识 → 记录 id」映射（v2.14 P0-2，.ics 导入回填 `parent_id` 用）。
+   *
+   * 为什么需要 id：`RELATED-TO` 写的是父记录的 **UID**，而 `records.parent_id` 要的是 **id**，
+   * 中间必须有一次"UID → id"的解析；导入后父子可能同批写入，所以查的是**整库**而不是本地草稿。
+   *
+   * @param uids 待查的外部标识（自动去重、去空）
+   * @returns UID → id（未命中的键不存在）
+   * @throws RecordsSchemaMissingError 迁移未执行（缺 `external_uid` 列）
+   */
+  async mapIdByExternalUids(uids: string[]): Promise<Map<string, number>> {
+    const unique: string[] = []
+    for (const raw of Array.isArray(uids) ? uids : []) {
+      if (typeof raw !== 'string') continue
+      const text = raw.trim()
+      if (!text) continue
+      if (!unique.includes(text)) unique.push(text)
+    }
+    const result = new Map<string, number>()
+    if (unique.length === 0) return result
+
+    for (let index = 0; index < unique.length; index += LIMITS.externalUidBatch) {
+      const chunk = unique.slice(index, index + LIMITS.externalUidBatch)
+      const { data, error } = await cloud.database
+        .from('records')
+        .select('id,external_uid')
+        .in('external_uid', chunk)
+      if (error) {
+        if (readErrorCode(error) === '42703') {
+          throw new RecordsSchemaMissingError(
+            '云库缺少 external_uid 字段，请先执行 docs/v2.14/migration.sql 后再导入',
+          )
+        }
+        unwrap({ data: null, error })
+      }
+      const rows = (data as Array<{ id?: unknown; external_uid?: unknown }> | null) ?? []
+      for (const row of rows) {
+        if (!row || typeof row !== 'object') continue
+        if (typeof row.id !== 'number' || typeof row.external_uid !== 'string') continue
+        if (row.external_uid) result.set(row.external_uid, row.id)
+      }
+    }
+    return result
+  },
+
+  /**
+   * 批量把一组记录挂到同一个父级下（v2.14 P0-2）。
+   *
+   * 迁移未执行（42703）时**不抛错**：父级关系是导入的附加信息，不该让一次已成功的导入整体失败。
+   *
+   * @param ids 子记录 id
+   * @param parentId 父记录 id
+   */
+  async setParentIds(ids: number[], parentId: number): Promise<void> {
+    const targets = Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id) && id > 0) : []
+    if (targets.length === 0 || !Number.isInteger(parentId) || parentId <= 0) return
+    const { error } = await cloud.database
+      .from('records')
+      .update({ parent_id: parentId })
+      .in('id', targets)
+    if (error && readErrorCode(error) !== '42703') unwrap({ data: null, error })
+  },
+
   /** 底层补丁（snake_case 字段，供 aiService 回写分类/摘要等）。 */
   async patchRecord(id: number, fields: Record<string, unknown>): Promise<InfoRecord> {
     const { data, error } = await cloud.database
@@ -532,14 +775,16 @@ export const recordService = {
     return mapRecord(unwrapRows({ data, error })[0])
   },
 
-  /** 软删除（进回收站）。 */
+  /** 软删除（进回收站）。v2.14 P0-2：连带把「子任务」（`parent_id = id`）一起放进回收站，不留孤儿。 */
   async softDelete(id: number): Promise<void> {
+    const nowIso = new Date().toISOString()
     const { data, error } = await cloud.database
       .from('records')
-      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .update({ is_deleted: true, deleted_at: nowIso })
       .eq('id', id)
       .select()
     unwrapRows({ data, error })
+    await softDeleteChildren(id, nowIso)
   },
 
   /** 恢复（移出回收站）。 */

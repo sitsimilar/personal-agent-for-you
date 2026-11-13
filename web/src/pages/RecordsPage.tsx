@@ -8,6 +8,7 @@ import { useRecordStore } from '@/store/recordStore'
 import RecordCard from '@/components/RecordCard'
 import RecordDetail from '@/components/RecordDetail'
 import PageHeader from '@/components/PageHeader'
+import PageShell from '@/components/PageShell'
 
 const TYPE_LABEL: Record<RecordType, string> = {
   idea: '想法',
@@ -80,7 +81,7 @@ export default function RecordsPage(props: RecordsPageProps) {
           : '想法、资料、待办都在这里'
 
   return (
-    <Box sx={{ p: 3 }}>
+    <PageShell tone="board">
       <PageHeader
         title={title}
         subtitle={`${subtitle} · 共 ${total} 条`}
@@ -145,6 +146,6 @@ export default function RecordsPage(props: RecordsPageProps) {
         onDeleted={load}
         onOpenRecord={setDetail}
       />
-    </Box>
+    </PageShell>
   )
 }

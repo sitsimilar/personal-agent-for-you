@@ -3,20 +3,25 @@ import {
   Box,
   Button,
   Card,
+  CardContent,
   CircularProgress,
   Grid,
   Pagination,
+  Stack,
   Typography,
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import AddIcon from '@mui/icons-material/Add'
 import type { InfoRecord } from '@shared/types/domain'
 import { useRecordStore } from '@/store/recordStore'
+import { useUiSchemeStore } from '@/store/uiSchemeStore'
 import { recordService } from '@/services/recordService'
 import RecordCard from '@/components/RecordCard'
 import RecordDetail from '@/components/RecordDetail'
 import RecordCreateDialog from '@/components/RecordCreateDialog'
 import PageHeader from '@/components/PageHeader'
+import PageShell from '@/components/PageShell'
+import SkeletonList from '@/components/ui/SkeletonList'
 
 interface HomeStats {
   weekNew: number
@@ -83,24 +88,86 @@ export default function HomePage() {
   const pageSize = filter.pageSize ?? 20
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
+  /** 当前界面方案（决定是否走分区布局 / 骨架屏）。 */
+  const scheme = useUiSchemeStore((s) => s.scheme)
+  const zoned = scheme === 'zoned'
+  const fluid = scheme === 'fluid'
+
+  /**
+   * 分区方案下的右栏（bento 副栏）。
+   *
+   * 只放"看一眼就够"的汇总，不放任何需要操作的东西 —— 副栏一旦出现按钮，
+   * 主区的视觉权重就守不住了。数据全部复用已有的 `stats`，不新增接口。
+   */
+  const renderAside = () => (
+    <Stack spacing={2}>
+      <Card variant="outlined">
+        <CardContent sx={{ pb: '12px !important' }}>
+          <Typography variant="caption" color="text.secondary">
+            本周新增
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.weekNew ?? 0}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              条
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+      <Card variant="outlined">
+        <CardContent sx={{ pb: '12px !important' }}>
+          <Typography variant="caption" color="text.secondary">
+            待办未完成
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.todoPending ?? 0}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              条
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+      <Card variant="outlined">
+        <CardContent sx={{ pb: '12px !important' }}>
+          <Typography variant="caption" color="text.secondary">
+            连续记录
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.streak ?? 0}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              天
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    </Stack>
+  )
+
   return (
-    <Box sx={{ p: 3 }}>
+    <PageShell tone="board" aside={zoned ? renderAside() : undefined}>
       <PageHeader title="全部信息" subtitle={`想法、资料、待办都在这里 · 共 ${total} 条`} />
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <StatCard label="本周新增" value={stats?.weekNew ?? 0} unit="条" />
-        <StatCard label="待办未完成" value={stats?.todoPending ?? 0} unit="条" />
-        <StatCard label="连续记录" value={stats?.streak ?? 0} unit="天" />
-      </Grid>
+      {/* 分区方案下统计卡进右栏（bento），主区专注记录列表；其余方案维持顶部三卡 */}
+      {!zoned && (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <StatCard label="本周新增" value={stats?.weekNew ?? 0} unit="条" />
+          <StatCard label="待办未完成" value={stats?.todoPending ?? 0} unit="条" />
+          <StatCard label="连续记录" value={stats?.streak ?? 0} unit="天" />
+        </Grid>
+      )}
 
       <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
         最近记录
       </Typography>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        fluid ? (
+          <SkeletonList rows={4} rowHeight={120} avatar />
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        )
       ) : error ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 8 }}>
           <Typography color="error">{error}</Typography>
@@ -117,9 +184,10 @@ export default function HomePage() {
         </Box>
       ) : (
         <>
+          {/* 分区方案下主区只占 2/3 宽，列数同步收一档，避免卡片被压成窄条 */}
           <Grid container spacing={2}>
             {records.map((r) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={r.id}>
+              <Grid item xs={12} sm={6} md={zoned ? 6 : 4} lg={zoned ? 4 : 3} key={r.id}>
                 <RecordCard record={r} onClick={() => setDetail(r)} />
               </Grid>
             ))}
@@ -152,6 +220,6 @@ export default function HomePage() {
           load()
         }}
       />
-    </Box>
+    </PageShell>
   )
 }

@@ -38,6 +38,18 @@ export interface RecordsRow {
   snooze_count?: number | null
   /** v2.13 R1 检索用 generated tsvector（只读，应用永不写入）。 */
   search_tsv?: string | null
+  /**
+   * v2.14 外部系统稳定标识（.ics 导入查重键）。
+   * 用 `?` 是「迁移未执行也兼容」：缺列时 `select('*')` 不返回该键，映射层回落 null。
+   */
+  external_uid?: string | null
+  /** v2.14 正文派生元数据（JSONB，脏数据按 null 处理）。 */
+  record_meta?: unknown
+  /**
+   * v2.14 P0-2 父记录 id（自引用，对应 .ics 的 `RELATED-TO;RELTYPE=PARENT`）。
+   * 用 `?` 是「迁移未执行也兼容」：缺列时不返回该键，映射层回落 null。
+   */
+  parent_id?: number | null
   is_deleted: boolean
   deleted_at: string | null
   created_at: string
@@ -84,6 +96,21 @@ export interface SettingsRow {
   quiet_end: string
   /** v2.13 R5 周回顾向导进度（JSONB；`?` 兼容迁移未执行）。 */
   review_wizard?: unknown
+  /**
+   * v2.14 P0-3 订阅源配置（JSONB 数组）。
+   * 用 `?` 是「迁移未执行也兼容」：缺列时 `select('*')` 不返回该键，
+   * `feedService.loadFeedConfig` 按空数组处理，只在**写**的时候提示去执行迁移。
+   */
+  feeds?: unknown
+  /** v2.14 P0-3 订阅运行时状态（JSONB 对象；`?` 同上，缺失按空对象处理）。 */
+  feed_state?: unknown
+  /**
+   * 界面方案（v2.13.1 UI-1）：`silent` | `zoned` | `fluid`。
+   *
+   * 用 `?` 是「迁移未执行也兼容」：缺列时 `select('*')` 不返回该键，
+   * 方案层自动退化为设备级（localStorage），不会报错阻塞设置页。
+   */
+  ui_scheme?: string | null
   avatar_image_id: number | null
   nickname: string | null
   updated_at: string

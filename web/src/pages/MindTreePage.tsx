@@ -74,6 +74,7 @@ import {
 } from '@/services/mindforest-store'
 import ForestSidebar from '@/components/mindforest/ForestSidebar'
 import CrossLinkPanel from '@/components/mindforest/CrossLinkPanel'
+import PageShell from '@/components/PageShell'
 
 /** 不可变更新：命中 targetId 的节点应用 updater，未命中返回原引用。 */
 function updateTree(
@@ -510,7 +511,7 @@ export default function MindTreePage() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1280, mx: 'auto' }}>
+    <PageShell tone="board" baseWidth={1280}>
       <PageHeader title="思维树" subtitle="把一个想法展开成思考树，多棵树可归入树林并交叉关联" />
 
       {error && (
@@ -743,6 +744,6 @@ export default function MindTreePage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </PageShell>
   )
 }

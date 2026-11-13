@@ -8,6 +8,10 @@
  * 配合内存锁避免同一 tick 重复。调度器对「旧两段键」也做一次只读兼容检查，
  * 保证升级后已弹过的提醒不会重复弹。
  * 窗口隐藏时仍生效：桌面端 `backgroundThrottling: false` 保证渲染定时器不被降频。
+ *
+ * v2.14 P0-3 下半起，每个 tick 额外把一轮「订阅抓取」挂到**下一个宏任务**（见
+ * `scheduleFeedTick`）：它有独立的 30 分钟节流与免打扰/断网闸，且与提醒链路完全隔离
+ * （异常不外溢、不插队、不改变本文任何既有判定）。
  */
 
 import { recordService } from '@/services/recordService'
@@ -20,13 +24,17 @@ import {
 import {
   dedupeKey,
   effectiveFireAt,
+  isInQuietHours,
   legacyDedupeKey,
+  localTzOffsetMinutes,
+  minuteOfDayOf,
   pruneFired,
   shouldFire,
   STALE_MS,
   type FiredStore,
 } from '@/lib/reminder-schedule'
 import { profileService } from '@/services/profileService'
+import { runFeedTickIfDue } from '@/services/feedService'
 import type { InfoRecord, Priority } from '@shared/types/domain'
 
 /** 轮询周期：30s（满足 A5「08:00–08:05 内补发」的 ±60s 精度要求）。 */
@@ -248,6 +256,39 @@ function probePermissionOnce(): void {
 }
 
 /**
+ * 订阅抓取（v2.14 P0-3 下半）的挂载点：把一轮 feed tick 挪到**下一个宏任务**。
+ *
+ * 为什么不直接在 `tickNow()` 里 `void runFeedTickIfDue()`：
+ * 1. **不插队**：订阅抓取自带一串云端往返（读 settings → 查重 → 写记录 → 回写状态），
+ *    同步启动会挤进提醒链路的查询序列，把"到点就弹"的时序搅乱——提醒是主线，订阅是配角；
+ * 2. **不传染异常**：跑到下一个宏任务后，任何异常都冒泡不到本次 tick 的 try/catch 里，
+ *    订阅出什么事都不会影响待办提醒；
+ * 3. **不重复读设置**：回调里拿的是 `getReminderSettings()` 的 5 分钟缓存，
+ *    免打扰判定复用它，不再多发一次 settings 查询。
+ *
+ * 免打扰窗口内传 `quiet: true`（`runFeedTickIfDue` 会直接跳过）：半夜抓订阅既没人看，
+ * 也没必要在用户睡觉时占带宽。
+ */
+function scheduleFeedTick(): void {
+  if (typeof window === 'undefined') return
+  window.setTimeout(() => {
+    void (async () => {
+      try {
+        const settings = await getReminderSettings()
+        const nowMs = Date.now()
+        // 跨夜窗口（22:00–08:00）由 isInQuietHours 判定，这里不重复实现
+        const quiet =
+          settings.quietHoursEnabled &&
+          isInQuietHours(minuteOfDayOf(nowMs, localTzOffsetMinutes()), settings.quietStart, settings.quietEnd)
+        await runFeedTickIfDue({ quiet })
+      } catch {
+        /* 订阅抓取与提醒是两条链路：这里绝不向调度器抛错 */
+      }
+    })()
+  }, 0)
+}
+
+/**
  * 立即执行一次调度（启动 / 可见性变化 / 设置保存后 / 定时器）。
  * 并发保护：上一轮未结束时直接跳过。
  */
@@ -256,6 +297,8 @@ export async function tickNow(): Promise<void> {
   if (ticking) return
   ticking = true
   try {
+    // 订阅抓取先挂到下一个宏任务（非阻塞、不插队），详见 scheduleFeedTick 注释
+    scheduleFeedTick()
     const settings = await getReminderSettings()
     // 总开关关闭：不发通知，也不写去重键（重开后 12h 内仍可补发）
     if (!settings.notifyEnabled) return

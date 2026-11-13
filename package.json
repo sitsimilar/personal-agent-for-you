@@ -1,6 +1,6 @@
 {
   "name": "personal-agent",
-  "version": "2.13.0",
+  "version": "2.13.3",
   "private": true,
   "description": "个人信息管家 Agent（Web 应用 + Electron 桌面伴侣）",
   "scripts": {
@@ -10,7 +10,9 @@
     "dev:desktop": "npm --prefix desktop run dev",
     "build:desktop": "npm --prefix desktop run build",
     "typecheck:desktop": "npm --prefix desktop run typecheck",
-    "test:qa": "node qa/run-tests.mjs"
+    "test:qa": "node qa/run-tests.mjs",
+    "shortcuts:doc": "node scripts/gen-shortcuts-doc.mjs",
+    "shortcuts:check": "node scripts/gen-shortcuts-doc.mjs --check"
   },
   "devDependencies": {
     "tsx": "^4.19.0"

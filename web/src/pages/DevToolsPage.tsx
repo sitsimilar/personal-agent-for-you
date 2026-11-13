@@ -27,6 +27,7 @@ import CodeGenPanel from '@/components/CodeGenPanel'
 import IdePanel from '@/components/IdePanel'
 import ScreenshotPanel from '@/components/ScreenshotPanel'
 import PageHeader from '@/components/PageHeader'
+import PageShell from '@/components/PageShell'
 
 /** 读取选区（仅桌面环境可用）。结果持久化，切换工具后返回不丢失。 */
 function SelectionSection() {
@@ -194,7 +195,7 @@ export default function DevToolsPage() {
   )
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1100, mx: 'auto' }}>
+    <PageShell tone="list" baseWidth={1100}>
       <PageHeader title="开发者工具箱" subtitle="按分类目录快速定位常用工具" />
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
@@ -236,6 +237,6 @@ export default function DevToolsPage() {
           </Box>
         </Box>
       </Stack>
-    </Box>
+    </PageShell>
   )
 }

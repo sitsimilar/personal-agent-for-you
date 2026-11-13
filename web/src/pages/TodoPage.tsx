@@ -34,11 +34,14 @@ import { aiService } from '@/services/aiService'
 import { pushNotice } from '@/store/noticeStore'
 import { describeRecurrence } from '@/lib/recurrence'
 import { isSnoozePending } from '@/lib/reminder-schedule'
-import { BUCKET_LABELS, bucketCounts, splitByBucket } from '@/lib/todo-segments'
+import { BUCKET_LABELS, bucketCounts, isImportantTodo, splitByBucket } from '@/lib/todo-segments'
 import { friendlyError } from '@/lib/unwrap'
 import { categoryColor } from '@shared/constants/categories'
 import PageHeader from '@/components/PageHeader'
 import RecordDetail from '@/components/RecordDetail'
+import PageShell from '@/components/PageShell'
+import SkeletonList from '@/components/ui/SkeletonList'
+import { useUiSchemeStore } from '@/store/uiSchemeStore'
 
 function formatRemind(iso: string | null | undefined): string {
   if (!iso) return ''
@@ -78,6 +81,16 @@ export default function TodoPage() {
   const [records, setRecords] = useState<InfoRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  /**
+   * 勾选乐观反馈（仅流畅方案）：点下的一瞬间先把这一行标成"已完成"，
+   * 后台落库完成后再由 `load()` 用真实数据替换。落库失败则从集合里移除，视觉自动回滚。
+   *
+   * 注意这里**不动数据**：`records` 仍是服务端权威列表，只是渲染时叠了一层临时态，
+   * 所以不会出现"视觉说完成了、数据没完成"的永久不一致（`load()` 一刷新就对齐）。
+   */
+  const [optimisticDone, setOptimisticDone] = useState<Set<number>>(() => new Set())
+  const scheme = useUiSchemeStore((s) => s.scheme)
+  const fluid = scheme === 'fluid'
   const [organizeOpen, setOrganizeOpen] = useState(false)
   const [organizing, setOrganizing] = useState(false)
   const [organizeResult, setOrganizeResult] = useState<TodoOrganizeResult | null>(null)
@@ -87,6 +100,13 @@ export default function TodoPage() {
   const [toast, setToast] = useState('')
   /** 当前分段（默认「今天」）。 */
   const [bucket, setBucket] = useState<TodoBucket>('today')
+  /**
+   * 只看「重要」（v2.14 P0-2）：`priority='high'` 或今天到期。
+   *
+   * 故意做成**与界面方案无关**的数据筛选（口径在 `lib/todo-segments.ts` 的纯函数里），
+   * 所以 silent / zoned / fluid 三套方案看到的分段计数完全一致。
+   */
+  const [importantOnly, setImportantOnly] = useState(false)
   /** 服务端未完成 / 已完成总数（「共 M 条」用，只发 2 次 head count）。 */
   const [statusCounts, setStatusCounts] = useState<{ pending: number; done: number }>({ pending: 0, done: 0 })
   /** 分段判定基准时刻：随每次加载刷新，保证同一屏内三段划分稳定。 */
@@ -203,6 +223,26 @@ export default function TodoPage() {
   }
 
   /**
+   * 勾选入口（流畅方案下带同帧乐观反馈，其余方案保持原行为）。
+   *
+   * 之所以包一层而不改 `toggle` 内部：`toggle` 里还挂着循环任务生成下一期、
+   * 幂等提示等副作用，乐观层只负责"眼睛先看到"，落库语义一律不动。
+   */
+  const handleToggleClick = (r: InfoRecord) => {
+    if (fluid) {
+      setOptimisticDone((prev) => new Set(prev).add(r.id))
+    }
+    void toggle(r).finally(() => {
+      setOptimisticDone((prev) => {
+        if (!prev.has(r.id)) return prev
+        const next = new Set(prev)
+        next.delete(r.id)
+        return next
+      })
+    })
+  }
+
+  /**
    * 切换「某天」标记（R2）：即时写入、无需二次确认。
    * 切换后该待办会立即从原分段消失并出现在新分段（一条待办只有一段归属）。
    */
@@ -234,22 +274,37 @@ export default function TodoPage() {
 
   const pending = records.filter((r) => r.todoStatus !== 'done')
   const done = records.filter((r) => r.todoStatus === 'done')
-  /** 三段计数（以「已加载集合」为准，恒等于 pending.length）。 */
-  const counts = bucketCounts(pending, nowMs)
+  /** 「重要」条数（未筛选时随时可见，让用户知道点下去有多少条）。 */
+  const importantCount = pending.filter((r) => isImportantTodo(r, nowMs)).length
+  /** 分段与计数一律基于**筛选后**的集合，两处同源故不会互相矛盾。 */
+  const visiblePending = importantOnly ? pending.filter((r) => isImportantTodo(r, nowMs)) : pending
+  /** 三段计数（以「已加载集合」为准，恒等于 visiblePending.length）。 */
+  const counts = bucketCounts(visiblePending, nowMs)
   /** 三段列表（每条只进一段，不复制）。 */
-  const buckets = splitByBucket(pending, nowMs)
+  const buckets = splitByBucket(visiblePending, nowMs)
   const visible = buckets[bucket]
 
   /** 加载未完成时提示「已加载 N / 共 M」，避免用户误以为段计数等于全量。 */
   const partial = pending.length < statusCounts.pending
 
   return (
-    <Box sx={{ p: 3, maxWidth: 760, mx: 'auto' }}>
+    <PageShell tone="list" baseWidth={760}>
       <PageHeader
         title="待办"
         subtitle="今天 / 即将 / 某天 三段视图，按优先级与截止时间整理"
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
+          // flexWrap：375 档「重要 + 三段切换 + 智能整理」一行放不下，
+          // 不换行会顶出 main 内部横向滚动（§八 第 2 项要求 =0，11-09 实测 +7px）
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap justifyContent="flex-end">
+            <Chip
+              size="small"
+              clickable
+              color={importantOnly ? 'primary' : 'default'}
+              variant={importantOnly ? 'filled' : 'outlined'}
+              label={`重要 ${importantCount}`}
+              aria-pressed={importantOnly}
+              onClick={() => setImportantOnly((prev) => !prev)}
+            />
             <ToggleButtonGroup
               size="small"
               exclusive
@@ -290,9 +345,13 @@ export default function TodoPage() {
         </Box>
       )}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        fluid ? (
+          <SkeletonList rows={5} rowHeight={64} />
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        )
       ) : records.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
           <Typography sx={{ mb: 1.5 }}>暂无待办</Typography>
@@ -310,7 +369,9 @@ export default function TodoPage() {
 
           {visible.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-              <Typography variant="body2">{BUCKET_EMPTY_TEXT[bucket]}</Typography>
+              <Typography variant="body2">
+                {importantOnly ? '当前分段没有「重要」待办（高优先级或今天到期）' : BUCKET_EMPTY_TEXT[bucket]}
+              </Typography>
             </Box>
           ) : (
             <List>
@@ -334,16 +395,29 @@ export default function TodoPage() {
                       </Tooltip>
                       <Checkbox
                         edge="end"
-                        checked={false}
+                        checked={optimisticDone.has(r.id)}
                         onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggle(r)}
+                        onChange={() => handleToggleClick(r)}
                         inputProps={{ 'aria-label': '标记完成' }}
                       />
                     </Stack>
                   }
                 >
-                  <ListItemButton onClick={() => setDetail(r)} sx={{ borderRadius: 2 }}>
+                  <ListItemButton
+                    onClick={() => setDetail(r)}
+                    sx={{
+                      borderRadius: 2,
+                      opacity: optimisticDone.has(r.id) ? 0.45 : 1,
+                      transition: 'opacity var(--motion-exit) var(--motion-ease-exit)',
+                    }}
+                  >
                     <ListItemText
+                      primaryTypographyProps={{
+                        sx: {
+                          textDecoration: optimisticDone.has(r.id) ? 'line-through' : 'none',
+                          transition: 'color var(--motion-exit) var(--motion-ease-exit)',
+                        },
+                      }}
                       primary={r.title || '（无标题）'}
                       secondary={
                         <Box component="span" sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
@@ -545,6 +619,6 @@ export default function TodoPage() {
         onDeleted={load}
         onOpenRecord={setDetail}
       />
-    </Box>
+    </PageShell>
   )
 }

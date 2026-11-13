@@ -1,6 +1,7 @@
 import { Box, Button, Typography } from '@mui/material'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PageHeader from '@/components/PageHeader'
+import PageShell from '@/components/PageShell'
 
 /**
  * 学习目标：单一入口页。
@@ -11,7 +12,7 @@ const LEARNING_GOAL_PUBLISH_URL = 'https://workbuddy.link/p/rKnqUNYStrnTP0n8SokM
 
 export default function LearningGoalPage() {
   return (
-    <Box sx={{ p: 3, maxWidth: 860, mx: 'auto' }}>
+    <PageShell tone="form" baseWidth={860}>
       <PageHeader
         title="学习目标"
         subtitle="管理有终点、有总量的学习目标：每日打卡、连续天数、预计完成日与每周复盘（数据存于资料库，多端同步）"
@@ -31,6 +32,6 @@ export default function LearningGoalPage() {
           点击后在新窗口打开管理台，数据在线存储、多端双向同步。
         </Typography>
       </Box>
-    </Box>
+    </PageShell>
   )
 }

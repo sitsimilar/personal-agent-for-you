@@ -1,0 +1,2378 @@
+{
+  "date": "2026-11-10",
+  "base": "http://127.0.0.1:4173",
+  "sessionKeyMasked": "workbuddy-cloud.session.wbpk_***_uPHHM0B4cs1WDMYt41aX9cwBZYmfqyJX",
+  "results": [
+    {
+      "viewport": "375x667",
+      "route": "/",
+      "name": "home",
+      "landedUrl": "http://127.0.0.1:4173/",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 10,
+      "smallTargetCount": 1,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__home.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/todo",
+      "name": "todo",
+      "landedUrl": "http://127.0.0.1:4173/todo",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "div",
+          "label": "重要 0",
+          "w": 53,
+          "h": 24,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "即将 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "某天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "智能整理",
+          "w": 96,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__todo.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/records",
+      "name": "records",
+      "landedUrl": "http://127.0.0.1:4173/records",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 10,
+      "smallTargetCount": 1,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__records.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/calendar",
+      "name": "calendar",
+      "landedUrl": "http://127.0.0.1:4173/calendar",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [
+        {
+          "tag": "div",
+          "cls": "MuiBox-root css-gmic3k",
+          "left": 24,
+          "right": 664,
+          "width": 640,
+          "text": "1234567891011121314151617181920212223242"
+        }
+      ],
+      "offenderCount": 1,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 17,
+      "smallTargetCount": 8,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "月视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "周视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天",
+          "w": 64,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__calendar.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/review",
+      "name": "review",
+      "landedUrl": "http://127.0.0.1:4173/review",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本周",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本月",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "自定义",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成回顾",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "开始周回顾（5 步）",
+          "w": 171,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__review.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/mindtree",
+      "name": "mindtree",
+      "landedUrl": "http://127.0.0.1:4173/mindtree",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "新建树",
+          "w": 73,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 JSON",
+          "w": 160,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 JSON",
+          "w": 160,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成思维树",
+          "w": 293,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__mindtree.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/learning-goal",
+      "name": "learning",
+      "landedUrl": "http://127.0.0.1:4173/learning-goal",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 11,
+      "smallTargetCount": 2,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "a",
+          "label": "打开学习目标管理台",
+          "w": 205,
+          "h": 42,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__learning.png"
+    },
+    {
+      "viewport": "375x667",
+      "route": "/plugins",
+      "name": "plugins",
+      "landedUrl": "http://127.0.0.1:4173/plugins",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 375,
+      "docScrollWidth": 375,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 375,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 11,
+      "smallTargetCount": 2,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 126,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "安装插件",
+          "w": 108,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 611,
+        "bottom": 667,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 555,
+        "bottom": 603,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/375x667__plugins.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/",
+      "name": "home",
+      "landedUrl": "http://127.0.0.1:4173/",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 10,
+      "smallTargetCount": 1,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__home.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/todo",
+      "name": "todo",
+      "landedUrl": "http://127.0.0.1:4173/todo",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "div",
+          "label": "重要 0",
+          "w": 53,
+          "h": 24,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "即将 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "某天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "智能整理",
+          "w": 96,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__todo.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/records",
+      "name": "records",
+      "landedUrl": "http://127.0.0.1:4173/records",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 10,
+      "smallTargetCount": 1,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__records.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/calendar",
+      "name": "calendar",
+      "landedUrl": "http://127.0.0.1:4173/calendar",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [
+        {
+          "tag": "div",
+          "cls": "MuiBox-root css-gmic3k",
+          "left": 24,
+          "right": 664,
+          "width": 640,
+          "text": "1234567891011121314151617181920212223242"
+        }
+      ],
+      "offenderCount": 1,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 17,
+      "smallTargetCount": 8,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "月视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "周视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天",
+          "w": 64,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__calendar.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/review",
+      "name": "review",
+      "landedUrl": "http://127.0.0.1:4173/review",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本周",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本月",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "自定义",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成回顾",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "开始周回顾（5 步）",
+          "w": 171,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__review.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/mindtree",
+      "name": "mindtree",
+      "landedUrl": "http://127.0.0.1:4173/mindtree",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 15,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "新建树",
+          "w": 73,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 JSON",
+          "w": 167,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 JSON",
+          "w": 167,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成思维树",
+          "w": 308,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__mindtree.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/learning-goal",
+      "name": "learning",
+      "landedUrl": "http://127.0.0.1:4173/learning-goal",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 11,
+      "smallTargetCount": 2,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "a",
+          "label": "打开学习目标管理台",
+          "w": 205,
+          "h": 42,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__learning.png"
+    },
+    {
+      "viewport": "390x844",
+      "route": "/plugins",
+      "name": "plugins",
+      "landedUrl": "http://127.0.0.1:4173/plugins",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 390,
+      "docScrollWidth": 390,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 390,
+      "mainRatio": 1,
+      "mainScrollOverflow": 0,
+      "targetCount": 11,
+      "smallTargetCount": 2,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 141,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "安装插件",
+          "w": 108,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": true,
+      "bottomNavRect": {
+        "top": 788,
+        "bottom": 844,
+        "height": 56
+      },
+      "fabRect": {
+        "top": 732,
+        "bottom": 780,
+        "left": 12,
+        "width": 48,
+        "height": 48
+      },
+      "fabOverlapsNav": false,
+      "bottomNavSmallTargets": 0,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/390x844__plugins.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/",
+      "name": "home",
+      "landedUrl": "http://127.0.0.1:4173/",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 20,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__home.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/todo",
+      "name": "todo",
+      "landedUrl": "http://127.0.0.1:4173/todo",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 10,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "todo",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "div",
+          "label": "重要 0",
+          "w": 53,
+          "h": 24,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "即将 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "某天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "智能整理",
+          "w": 96,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__todo.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/records",
+      "name": "records",
+      "landedUrl": "http://127.0.0.1:4173/records",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 20,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__records.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/calendar",
+      "name": "calendar",
+      "landedUrl": "http://127.0.0.1:4173/calendar",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [
+        {
+          "tag": "div",
+          "cls": "MuiBox-root css-gmic3k",
+          "left": 264,
+          "right": 904,
+          "width": 640,
+          "text": "1234567891011121314151617181920212223242"
+        }
+      ],
+      "offenderCount": 1,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 27,
+      "smallTargetCount": 12,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "月视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "周视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__calendar.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/review",
+      "name": "review",
+      "landedUrl": "http://127.0.0.1:4173/review",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 10,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本周",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本月",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "自定义",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成回顾",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "开始周回顾（5 步）",
+          "w": 171,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__review.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/mindtree",
+      "name": "mindtree",
+      "landedUrl": "http://127.0.0.1:4173/mindtree",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 9,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "新建树",
+          "w": 73,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 JSON",
+          "w": 236,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 JSON",
+          "w": 236,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成思维树",
+          "w": 422,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__mindtree.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/learning-goal",
+      "name": "learning",
+      "landedUrl": "http://127.0.0.1:4173/learning-goal",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 21,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "a",
+          "label": "打开学习目标管理台",
+          "w": 205,
+          "h": 42,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__learning.png"
+    },
+    {
+      "viewport": "768x1024",
+      "route": "/plugins",
+      "name": "plugins",
+      "landedUrl": "http://127.0.0.1:4173/plugins",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 768,
+      "docScrollWidth": 768,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 528,
+      "mainRatio": 0.688,
+      "mainScrollOverflow": 0,
+      "targetCount": 21,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 77,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "安装插件",
+          "w": 108,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/768x1024__plugins.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/",
+      "name": "home",
+      "landedUrl": "http://127.0.0.1:4173/",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 20,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__home.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/todo",
+      "name": "todo",
+      "landedUrl": "http://127.0.0.1:4173/todo",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 10,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "todo",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "div",
+          "label": "重要 0",
+          "w": 53,
+          "h": 24,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "今天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "即将 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "某天 0",
+          "w": 59,
+          "h": 29,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "智能整理",
+          "w": 96,
+          "h": 31,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__todo.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/records",
+      "name": "records",
+      "landedUrl": "http://127.0.0.1:4173/records",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 20,
+      "smallTargetCount": 5,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__records.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/calendar",
+      "name": "calendar",
+      "landedUrl": "http://127.0.0.1:4173/calendar",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 27,
+      "smallTargetCount": 12,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "月视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "周视图",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 .ics",
+          "w": 93,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "",
+          "w": 34,
+          "h": 34,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__calendar.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/review",
+      "name": "review",
+      "landedUrl": "http://127.0.0.1:4173/review",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 10,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本周",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "本月",
+          "w": 42,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "自定义",
+          "w": 55,
+          "h": 39,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成回顾",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "开始周回顾（5 步）",
+          "w": 171,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__review.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/mindtree",
+      "name": "mindtree",
+      "landedUrl": "http://127.0.0.1:4173/mindtree",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 25,
+      "smallTargetCount": 9,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "新建树",
+          "w": 73,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出 JSON",
+          "w": 136,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导入 JSON",
+          "w": 136,
+          "h": 31,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "生成思维树",
+          "w": 582,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__mindtree.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/learning-goal",
+      "name": "learning",
+      "landedUrl": "http://127.0.0.1:4173/learning-goal",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 21,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "a",
+          "label": "打开学习目标管理台",
+          "w": 205,
+          "h": 42,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__learning.png"
+    },
+    {
+      "viewport": "1200x900",
+      "route": "/plugins",
+      "name": "plugins",
+      "landedUrl": "http://127.0.0.1:4173/plugins",
+      "redirectedToLogin": false,
+      "navError": "",
+      "jsErrors": [],
+      "viewportWidth": 1200,
+      "docScrollWidth": 1200,
+      "horizontalOverflow": 0,
+      "offenders": [],
+      "offenderCount": 0,
+      "mainSelector": "main",
+      "mainWidth": 960,
+      "mainRatio": 0.8,
+      "mainScrollOverflow": 0,
+      "targetCount": 21,
+      "smallTargetCount": 6,
+      "smallTargets": [
+        {
+          "tag": "input",
+          "label": "all",
+          "w": 92,
+          "h": 19,
+          "small": true
+        },
+        {
+          "tag": "input",
+          "label": "检索关键词",
+          "w": 497,
+          "h": 37,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "快速记录",
+          "w": 108,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "导出",
+          "w": 82,
+          "h": 35,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "退出登录",
+          "w": 36,
+          "h": 36,
+          "small": true
+        },
+        {
+          "tag": "button",
+          "label": "安装插件",
+          "w": 108,
+          "h": 35,
+          "small": true
+        }
+      ],
+      "hasBottomNav": false,
+      "bottomNavRect": null,
+      "fabRect": null,
+      "fabOverlapsNav": null,
+      "bottomNavSmallTargets": null,
+      "shot": "outputs/qa/mobile-baseline/2026-11-10/shots/1200x900__plugins.png"
+    }
+  ]
+}

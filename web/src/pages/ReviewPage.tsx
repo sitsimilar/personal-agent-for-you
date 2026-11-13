@@ -26,6 +26,7 @@ import { reviewWizardService } from '@/services/reviewWizardService'
 import { friendlyError } from '@/lib/unwrap'
 import RecordDetail from '@/components/RecordDetail'
 import ReviewWizard from '@/components/ReviewWizard'
+import PageShell from '@/components/PageShell'
 
 type Range = 'week' | 'month' | 'custom'
 
@@ -158,7 +159,7 @@ export default function ReviewPage() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 860, mx: 'auto' }}>
+    <PageShell tone="form" baseWidth={860}>
       <Typography variant="h6" fontWeight={700} gutterBottom>
         回顾
       </Typography>
@@ -347,6 +348,6 @@ export default function ReviewPage() {
         onClose={() => setFinishedRecord(null)}
         onChanged={() => undefined}
       />
-    </Box>
+    </PageShell>
   )
 }
