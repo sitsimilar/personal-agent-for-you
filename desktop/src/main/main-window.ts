@@ -2,7 +2,7 @@ import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 import { store } from './store'
 import { attachNativeContextMenu } from './context-menu'
-import { IPC, WEB_APP_URL, type WindowStatePayload } from '../shared/ipc-contract'
+import { IPC, buildAppUrl, type WindowStatePayload } from '../shared/ipc-contract'
 
 const MAIN_MIN_W = 960
 const MAIN_MIN_H = 640
@@ -127,7 +127,12 @@ export function createMainWindow(): BrowserWindow {
 /** 加载主窗口远程页（失败回退到本地引导页）。 */
 export function loadMainRemote(): void {
   if (!mainWindow) return
-  mainWindow.loadURL(`${WEB_APP_URL}?desktop=1`).catch(() => loadMainFallback())
+  const url = buildAppUrl({ desktop: '1' })
+  if (!url) {
+    loadMainFallback()
+    return
+  }
+  mainWindow.loadURL(url).catch(() => loadMainFallback())
 }
 
 /** 远程加载失败时回退到本地引导页（含「重试」按钮）。 */

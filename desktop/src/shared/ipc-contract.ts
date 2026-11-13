@@ -45,11 +45,33 @@ export const IPC = {
 } as const
 
 /**
- * 已发布 Web 应用地址（悬浮窗加载 https://WEB_APP_URL?mode=companion，
- * 主窗口加载 https://WEB_APP_URL?desktop=1）。
+ * 已发布 Web 应用地址（主窗口加 `desktop=1`、悬浮窗加 `mode=companion`，
+ * 由 `buildAppUrl` 拼装，不要自己用 `${WEB_APP_URL}?x=1` 硬拼）。
  * 开源 / 多环境使用：复制 `desktop/.env.example` 为 `desktop/.env` 并填入域名。
+ *
+ * 注意：发布位若开启分享码，域名必须带 `?sharecode=...`（发布后由平台下发，
+ * 缺它整站返回 403「链接不完整」）。硬拼会得到 `?sharecode=A?desktop=1` 这种坏地址，
+ * 所以拼参一律走 `buildAppUrl`。
  */
 export const WEB_APP_URL = import.meta.env.VITE_WEB_APP_URL ?? ''
+
+/**
+ * 在 `WEB_APP_URL` 上追加查询参数，**保留原有查询串**。
+ *
+ * 返回空串表示未配置地址，调用方应走本地兜底页而不是加载空 URL。
+ */
+export function buildAppUrl(extra?: Record<string, string>): string {
+  const base = String(WEB_APP_URL ?? '').trim()
+  if (!base) return ''
+  try {
+    const url = new URL(base)
+    for (const [key, value] of Object.entries(extra ?? {})) url.searchParams.set(key, value)
+    return url.toString()
+  } catch {
+    // 非法 URL（缺 scheme 等）不抛错，交回原值让 Electron 自己报加载失败并回退
+    return base
+  }
+}
 
 /** 主进程推给悬浮窗的源码文件片段。 */
 export interface SourceFilePayload {

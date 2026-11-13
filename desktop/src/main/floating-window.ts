@@ -2,7 +2,7 @@ import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 import { store } from './store'
 import { attachNativeContextMenu } from './context-menu'
-import { IPC, WEB_APP_URL, type FloatingWindowStatePayload } from '../shared/ipc-contract'
+import { IPC, buildAppUrl, type FloatingWindowStatePayload } from '../shared/ipc-contract'
 import {
   EDGE_VISIBLE,
   FLOAT_MAX,
@@ -289,7 +289,12 @@ export function createFloatingWindow(): BrowserWindow {
 /** 加载远程 Web companion 页（悬浮窗渲染 CompanionPanel）。 */
 function loadRemote(): void {
   if (!floatingWindow) return
-  floatingWindow.loadURL(`${WEB_APP_URL}?mode=companion`).catch(() => {
+  const url = buildAppUrl({ mode: 'companion' })
+  if (!url) {
+    loadLocalFallback()
+    return
+  }
+  floatingWindow.loadURL(url).catch(() => {
     loadLocalFallback()
   })
 }
