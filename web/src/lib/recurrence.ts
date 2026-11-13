@@ -18,6 +18,8 @@ const MS_PER_MINUTE = 60_000
 const WEEK_SCAN_LIMIT = 400
 /** 月分支遍历上限（20 年，同上）。 */
 const MONTH_SCAN_LIMIT = 240
+/** P2-7「下次实例」连续推进上限（daily 约 2.7 年，覆盖任何离线/不同步时长）。 */
+const NEXT_INSTANCE_SCAN_LIMIT = 1000
 
 /** 循环推进入参。 */
 export interface ComputeNextInput {
@@ -338,6 +340,70 @@ function readDayOfMonth(iso: string | null | undefined): number | null {
   if (ms === null) return null
   const d = new Date(ms)
   return d.getDate()
+}
+
+/**
+ * 卡片用「下次实例」文案（P2-7）：`11-23 10:00`，跨年带年份 `2027-01-04 10:00`。
+ *
+ * 纯展示，不改规则模型、不落库：
+ * - `remindAt` 为空 → `''`（无时间轴可推，与 `computeNext` 的 null 分支对齐）；
+ * - 规则已过 `endDate` → `''`（不再给一个不会发生的日期）；
+ * - 非法规则 → `''`。
+ *
+ * @param rule 循环规则
+ * @param remindAt 基准提醒时间（ISO）
+ * @param options.now 参照时刻，默认当前；`tzOffsetMinutes` 默认取运行时（东八区 480）
+ */
+export function nextInstanceLabel(
+  rule: RecurrenceRule | null | undefined,
+  remindAt?: string | null,
+  options: { now?: Date; tzOffsetMinutes?: number } = {},
+): string {
+  const normalized = normalizeRecurrenceRule(rule)
+  if (!normalized || !remindAt) return ''
+  const now = options.now ?? new Date()
+  const tz =
+    typeof options.tzOffsetMinutes === 'number' ? options.tzOffsetMinutes : localTzOffsetMinutes(now)
+  const nowMs = now.getTime()
+  // 本期本身还在未来（最常见：新建了一条「明天 10:00 每 2 天」）→ 下一次就是它，
+  // 不能先推进一期，否则会显示成「后天」。
+  const remindMs = parseIso(remindAt)
+  if (remindMs !== null && remindMs > nowMs) return formatOnShiftedAxis(remindMs, tz, nowMs)
+  // `computeNext` 只从基准推**一期**；remind_at 早已过期时（离线多日、跨设备不同步）
+  // 需要连续推进到「今天之后」，否则会显示一个已经过去的日期。
+  let cursor = remindAt
+  let cursorMs = remindMs
+  for (let guard = 0; guard < NEXT_INSTANCE_SCAN_LIMIT; guard += 1) {
+    const { nextRemindIso } = computeNext(normalized, {
+      remindAt: cursor,
+      nowIso: now.toISOString(),
+      tzOffsetMinutes: tz,
+    })
+    const nextMs = parseIso(nextRemindIso)
+    if (nextMs === null) return ''
+    if (nextMs > nowMs) return formatOnShiftedAxis(nextMs, tz, nowMs)
+    // 未推进（completion 模式以完成时刻为基准时会原地踏步）→ 放弃，避免死循环
+    if (cursorMs !== null && nextMs <= cursorMs) return ''
+    cursor = nextRemindIso as string
+    cursorMs = nextMs
+  }
+  return ''
+}
+
+/** 在平移时间轴上格式化 `MM-DD HH:mm`（同年）/ `YYYY-MM-DD HH:mm`（跨年），与 computeNext 同源。 */
+function formatOnShiftedAxis(ms: number, tzOffsetMinutes: number, nowMs: number): string {
+  const shifted = new Date(ms + tzOffsetMinutes * MS_PER_MINUTE)
+  const nowShifted = new Date(nowMs + tzOffsetMinutes * MS_PER_MINUTE)
+  const monthDay = `${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`
+  const time = `${pad2(shifted.getUTCHours())}:${pad2(shifted.getUTCMinutes())}`
+  return shifted.getUTCFullYear() === nowShifted.getUTCFullYear()
+    ? `${monthDay} ${time}`
+    : `${shifted.getUTCFullYear()}-${monthDay} ${time}`
+}
+
+/** 两位补零。 */
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value)
 }
 
 /**

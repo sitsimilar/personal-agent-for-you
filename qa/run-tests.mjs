@@ -59,6 +59,7 @@ const targets = [
   { entry: 'qa/cdb-parse.test.ts', out: 'qa/dist/cdb-parse.test.cjs', alias: {} },
   { entry: 'qa/provision.test.ts', out: 'qa/dist/provision.test.cjs', alias: electronAlias },
   { entry: 'qa/recurrence.test.ts', out: 'qa/dist/recurrence.test.cjs', alias: {} },
+  { entry: 'qa/p2-7-next-instance.test.ts', out: 'qa/dist/p2-7-next-instance.test.cjs', alias: {} },
   { entry: 'qa/recurrence-service.test.ts', out: 'qa/dist/recurrence-service.test.cjs', alias: webAlias },
   { entry: 'qa/reminder-schedule.test.ts', out: 'qa/dist/reminder-schedule.test.cjs', alias: {} },
   { entry: 'qa/link-preview.test.ts', out: 'qa/dist/link-preview.test.cjs', alias: {} },

@@ -13,7 +13,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import RepeatIcon from '@mui/icons-material/Repeat'
 import type { InfoRecord } from '@shared/types/domain'
 import { categoryColor, tagColor } from '@shared/constants/categories'
-import { describeRecurrence } from '@/lib/recurrence'
+import { describeRecurrence, nextInstanceLabel } from '@/lib/recurrence'
 import { isHttpUrl, prettyHost } from '@/services/linkPreviewService'
 import LinkCover from './LinkCover'
 
@@ -41,6 +41,11 @@ interface RecordCardProps {
 export default function RecordCard({ record, onClick }: RecordCardProps) {
   const meta = TYPE_META[record.type] ?? TYPE_META.idea
   const recurrenceLabel = record.recurrence ? describeRecurrence(record.recurrence, record.remindAt) : ''
+  // P2-7：循环且未完成时给出「下次实例」；已完成的不再展示（本期已结束，下一期由完成动作生成）
+  const nextInstance =
+    record.recurrence && record.todoStatus !== 'done'
+      ? nextInstanceLabel(record.recurrence, record.remindAt)
+      : ''
   const hostLabel = record.linkMeta?.site || prettyHost(record.url)
 
   return (
@@ -86,6 +91,12 @@ export default function RecordCard({ record, onClick }: RecordCardProps) {
           <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1.3 }}>
             {record.title || '（无标题）'}
           </Typography>
+
+          {nextInstance && (
+            <Typography variant="caption" color="text.secondary" title={`下次实例：${nextInstance}`}>
+              下次 {nextInstance}
+            </Typography>
+          )}
 
           {record.summary && (
             <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
