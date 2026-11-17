@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  品牌色（与 web/src/index.css、desktop 图标同源）：
+  - colorPrimary      #5B54D9 靛蓝，控件主色
+  - colorPrimaryDark  #423CB0 状态栏底色
+  - colorAccent       #8C86F5 次级强调
+  - splash_background 启动图底色，与 splash.png 铺底一致，避免启动瞬间闪白
+
+  自适应图标的背景色 `ic_launcher_background` **不在这里**：它在
+  values/ic_launcher_background.xml 里（Capacitor 模板自带位置），
+  两处都写会被资源合并判成 Duplicate resources。
+-->
+<resources>
+    <color name="colorPrimary">#5B54D9</color>
+    <color name="colorPrimaryDark">#423CB0</color>
+    <color name="colorAccent">#8C86F5</color>
+    <color name="splash_background">#5B54D9</color>
+</resources>

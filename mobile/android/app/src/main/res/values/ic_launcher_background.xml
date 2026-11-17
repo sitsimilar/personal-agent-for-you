@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标（mipmap-anydpi-v26）的背景层：纯品牌色铺满，与品牌标 #5B54D9 同源。
+  注意：这个 color 名只允许在这里定义一次——Android 资源是全局扁平的，
+  在 colors.xml 里再写一遍会被 mergeDebugResources 判成 Duplicate resources。
+-->
+<resources>
+    <color name="ic_launcher_background">#5B54D9</color>
+</resources>

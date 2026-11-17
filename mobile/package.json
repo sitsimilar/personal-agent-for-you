@@ -1,0 +1,21 @@
+{
+  "name": "personal-agent-mobile",
+  "version": "2.13.4",
+  "private": true,
+  "description": "个人信息管家 · Android 壳工程（Capacitor，复用 web/ 构建产物）",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android",
+    "build:apk": "node scripts/build-apk.mjs",
+    "build:apk:release": "node scripts/build-apk.mjs --release"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.3",
+    "@capacitor/app": "6.0.3",
+    "@capacitor/core": "6.2.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.2.3",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+android/app/build/
+android/build/
+android/.gradle/
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# 本机 SDK 路径
+android/local.properties
+
+# 签名材料（绝不入库）
+android/keystore.properties
+# 用 `*.jks` 而不是 `android/*.jks`：密钥实际落在 android/app/ 下，只匹配一层会漏
+*.jks
+*.keystore

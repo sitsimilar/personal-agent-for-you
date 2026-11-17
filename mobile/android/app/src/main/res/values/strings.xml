@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">个人信息管家</string>
+    <string name="title_activity_main">个人信息管家</string>
+    <string name="package_name">com.personalagent.mobile</string>
+    <string name="custom_url_scheme">com.personalagent.mobile</string>
+</resources>
