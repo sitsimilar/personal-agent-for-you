@@ -114,6 +114,15 @@ const targets = [
     out: 'qa/dist/p0-d-feed-reminder-isolation.test.cjs',
     alias: { ...webAlias, '@/services/feedService': resolve(root, 'qa', 'mocks', 'feedService.ts') },
   },
+  // 机器视觉模块（特征 / 分类 / 质检 / 感知哈希 / 预处理阶梯 / 提示词 / 结果解析 / 重试策略）
+  { entry: 'qa/vision-features.test.ts', out: 'qa/dist/vision-features.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-classify.test.ts', out: 'qa/dist/vision-classify.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-quality.test.ts', out: 'qa/dist/vision-quality.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-phash.test.ts', out: 'qa/dist/vision-phash.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-plan.test.ts', out: 'qa/dist/vision-plan.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-prompt.test.ts', out: 'qa/dist/vision-prompt.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-result.test.ts', out: 'qa/dist/vision-result.test.cjs', alias: webAlias },
+  { entry: 'qa/vision-service.test.ts', out: 'qa/dist/vision-service.test.cjs', alias: webAlias },
   // 移动端骨架 P0-4 上半（侧栏断点切换纯函数 + Layout 源码约束）
   { entry: 'qa/p0-f-shell-layout.test.ts', out: 'qa/dist/p0-f-shell-layout.test.cjs', alias: webAlias },
   // 移动端骨架 P0-4 上半 · QA 独立对抗性验证（纯函数性 / 单一事实源 / 小数入参 / 阈值扫描 / 夹取）
@@ -130,6 +139,14 @@ const targets = [
   { entry: 'qa/p1-12-palette-record.test.ts', out: 'qa/dist/p1-12-palette-record.test.cjs', alias: webAlias },
   // 桌面端线上地址拼装与分享码自愈（发布位开启分享码后新增）
   { entry: 'qa/desktop-app-url.test.ts', out: 'qa/dist/desktop-app-url.test.cjs', alias: electronAlias },
+  // PWA 可安装 + 离线壳（P1-9：manifest / workbox 白名单 / 导航回退 / 可达性三态 / 离线库淘汰）
+  { entry: 'qa/p1-9-pwa.test.ts', out: 'qa/dist/p1-9-pwa.test.cjs', alias: webAlias },
+  // P1-8 上半：窄屏列表降级（密度纯函数 + 卡片接线，纯模块不需要云 mock）
+  { entry: 'qa/p1-8-compact-list.test.ts', out: 'qa/dist/p1-8-compact-list.test.cjs', alias: {} },
+  // APK 可安装性：签名统一 / v3 / minSdk / manifest 关键项
+  { entry: 'qa/apk-installability.test.ts', out: 'qa/dist/apk-installability.test.cjs', alias: {} },
+  // v2.15：Android APK + 多端同时在线（设备注册表 / 会话守护 / 壳工程配置）
+  { entry: 'qa/device-sessions.test.ts', out: 'qa/dist/device-sessions.test.cjs', alias: webAlias },
 ]
 
 // 云服务配置已参数化为 import.meta.env.VITE_*；测试环境无 Vite 注入，

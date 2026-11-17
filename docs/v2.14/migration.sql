@@ -94,3 +94,100 @@ COMMENT ON COLUMN public.settings.feed_state IS
   'status, nextFetchAt, lastHash, lastFetchedAt, lastError } }。'
   '健康态 = feed_state[id].status（不另设 feed_health 列，避免与计数器不一致）；'
   'nextFetchAt 为 null 表示「下一轮就抓」，非 null 表示退避窗口（304 阶梯 / failing 退避）';
+
+
+-- =====================================================================================
+-- 5) v2.15：多端同时在线（设备注册表 + updated_at 自动维护）
+-- =====================================================================================
+--
+-- 背景：同一账号要能在 **Android APK + Windows 桌面端** 同时登录。会话本身天然是多份的
+-- （每台设备各持一个 refresh 句柄，服务端不互相吊销），但「谁在线、几台、怎么请某一台下线」
+-- 需要一个可查询的载体，于是有 devices 表。
+--
+-- 与 settings 的关系：**不复用 settings 的 JSONB 桶**。settings 是"单行账户配置"，
+-- 多设备并发写同一行必然互覆盖；devices 天然一行一台，各自只写自己的 last_seen_at，
+-- 没有写冲突。
+--
+-- 幂等：全部 IF NOT EXISTS / DROP ... IF EXISTS 守卫，可重复执行。
+
+CREATE TABLE IF NOT EXISTS public.devices (
+  id           BIGSERIAL PRIMARY KEY,
+  owner_id     TEXT NOT NULL DEFAULT auth.uid(),
+  -- 客户端 localStorage 里的稳定随机 ID（卸载重装会变 → 视为新设备）
+  device_id    TEXT NOT NULL,
+  -- 机器可读平台：desktop / android / ios / web（web/src/lib/platform.ts 的值域）
+  platform     TEXT NOT NULL DEFAULT 'web',
+  -- 人类可读标签：'Windows · 桌面端' / 'Android · 手机'
+  label        TEXT NOT NULL DEFAULT '',
+  app_version  TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 由客户端心跳写入（ISO 串，服务端不生成）→ 见下方说明为什么不用 now()
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 非空 = 已被其它设备「请下线」；该设备下次心跳读到即自行登出
+  revoked_at   TIMESTAMPTZ
+);
+
+COMMENT ON TABLE public.devices IS
+  '多端在线的设备注册表：(owner_id, device_id) 唯一，一行一台设备。';
+COMMENT ON COLUMN public.devices.revoked_at IS
+  '被其它设备注销的时刻。非空时被注销端在下一次心跳（≤60s）读到后自行 signOut；'
+  '重新验证码登录会把该列清空（「请下线」不是「封禁」）。';
+
+-- 唯一键：同一账号同一台设备只允许一行（重复登录是 update，不是 insert）
+CREATE UNIQUE INDEX IF NOT EXISTS devices_owner_device_uniq
+  ON public.devices (owner_id, device_id);
+
+-- 设备列表按最近活跃倒序分页
+CREATE INDEX IF NOT EXISTS devices_owner_seen_idx
+  ON public.devices (owner_id, last_seen_at DESC);
+
+-- 两道门的第一道：先给角色授权（漏 GRANT 会得到形似策略失效的 42501）
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.devices TO authenticated, anon;
+GRANT USAGE, SELECT ON SEQUENCE public.devices_id_seq TO authenticated, anon;
+
+-- 第二道门：行级策略按 owner_id 隔离（与 records / settings 同一套写法）
+DROP POLICY IF EXISTS devices_select_own ON public.devices;
+CREATE POLICY devices_select_own ON public.devices
+  FOR SELECT USING (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS devices_insert_own ON public.devices;
+CREATE POLICY devices_insert_own ON public.devices
+  FOR INSERT WITH CHECK (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS devices_update_own ON public.devices;
+CREATE POLICY devices_update_own ON public.devices
+  FOR UPDATE USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS devices_delete_own ON public.devices;
+CREATE POLICY devices_delete_own ON public.devices
+  FOR DELETE USING (owner_id = auth.uid());
+
+-- -------------------------------------------------------------------------------------
+-- updated_at 自动维护
+-- -------------------------------------------------------------------------------------
+-- 真库实测：public 下**一个触发器都没有**，`records.updated_at` 只有 `DEFAULT now()`，
+-- 于是它永远等于创建时间，UPDATE 不会推进。后果：
+--   1. 多端并发时无法判断「谁后写」（LWW 失效，冲突时只能靠 id 顺序瞎猜）；
+--   2. `listByUpdatedSince`（项目健康检查）与离线库按 updatedAt 淘汰全部失真；
+--   3. 增量同步（拿 updated_at 做游标）永远拉不到改动。
+-- 用 BEFORE UPDATE 触发器兜住所有写入路径（含未来新增的），比在每个 service 里手写
+-- `updated_at: now()` 可靠——后者漏一处就永久静默失真。
+CREATE OR REPLACE FUNCTION public.pa_touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS records_touch_updated_at ON public.records;
+CREATE TRIGGER records_touch_updated_at
+  BEFORE UPDATE ON public.records
+  FOR EACH ROW EXECUTE FUNCTION public.pa_touch_updated_at();
+
+DROP TRIGGER IF EXISTS settings_touch_updated_at ON public.settings;
+CREATE TRIGGER settings_touch_updated_at
+  BEFORE UPDATE ON public.settings
+  FOR EACH ROW EXECUTE FUNCTION public.pa_touch_updated_at();

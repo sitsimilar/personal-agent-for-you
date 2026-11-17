@@ -292,14 +292,15 @@ test('isSnoozePending：只在「已推迟且未到点」时为 true，到点后
   assert.equal(isSnoozePending({ snoozedUntil: iso('10:10') }, Number.NaN), false)
 })
 
-test('源码守门：TodoPage 与 RecordDetail 两处「已推迟至」Chip 共用 isSnoozePending，且无裸判空', () => {
+test('源码守门：待办行与 RecordDetail 两处「已推迟至」Chip 共用 isSnoozePending，且无裸判空', () => {
   const read = (rel: string) => readFileSync(resolve(__dirname, '..', '..', rel), 'utf8')
   /**
    * 先剥注释再查（踩过的坑：注释里提到函数名会让 assert.match 假通过）。
    * 只剥块注释与「整行以 // 开头」的行注释——不碰行内 //（避免误伤 https:// 之类的字符串）。
    */
   const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-  for (const file of ['web/src/pages/TodoPage.tsx', 'web/src/components/RecordDetail.tsx']) {
+  // 待办侧的「已推迟至」Chip 已从 `TodoPage` 抽到 `TodoRow`（线构版列表行），守门跟着走
+  for (const file of ['web/src/components/TodoRow.tsx', 'web/src/components/RecordDetail.tsx']) {
     const code = stripComments(read(file))
     assert.match(code, /isSnoozePending\(/, `${file} 必须用 isSnoozePending 判定推迟是否仍有效`)
     assert.doesNotMatch(code, /snoozedUntil\s*&&/, `${file} 不得再用「只判非空」的裸写法`)
