@@ -54,6 +54,11 @@ const MIME = {
   '.ttf': 'font/ttf',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.map': 'application/json',
+  /**
+   * 安卓安装包：必须给专用 MIME，否则浏览器当 `application/octet-stream` 下载，
+   * 部分 ROM 的文件管理/浏览器不认它是安装包（「识别不出来」），点了没有安装入口。
+   */
+  '.apk': 'application/vnd.android.package-archive',
 }
 
 http
@@ -99,6 +104,13 @@ http
 
     let file = path.join(distDir, urlPath)
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      // 下载目录（APK 等）缺失就直接 404：回落 index.html 会让浏览器下到一个 HTML，
+      // 手机上表现为「文件损坏 / 不是安装包」，比明确 404 更难排查。
+      if (urlPath.startsWith('/download/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Not Found')
+        return
+      }
       // /welcome/ 下缺失的文件回落到宣传页自身，不要串进应用外壳
       file = urlPath === '/welcome/index.html' || urlPath.startsWith('/welcome/')
         ? path.join(distDir, 'welcome', 'index.html')
@@ -106,6 +118,13 @@ http
     }
     const ext = path.extname(file).toLowerCase()
     const type = MIME[ext] || 'application/octet-stream'
+    /**
+     * APK 强制 attachment 并显式给文件名：直接 `Content-Type` 到位还不够，
+     * 一些浏览器/微信内置浏览器会把下载名截断成无后缀，落到手机上就不是 `.apk`。
+     */
+    const disposition = ext === '.apk'
+      ? `attachment; filename="${path.basename(file)}"`
+      : undefined
     const size = fs.statSync(file).size
     // html 每次回源校验，其余静态资源（含 vite 带 hash 的产物）缓存一天。
     // PWA（P1-9）：sw.js 与 manifest 必须 no-cache——缓存住 sw.js 会让 autoUpdate 永远拿不到新壳，
@@ -143,6 +162,7 @@ http
           'Content-Length': end - start + 1,
           'Accept-Ranges': 'bytes',
           'Cache-Control': cache,
+          ...(disposition ? { 'Content-Disposition': disposition } : {}),
         })
         fs.createReadStream(file, { start, end }).pipe(res)
         return
@@ -154,6 +174,7 @@ http
       'Content-Length': size,
       'Accept-Ranges': 'bytes',
       'Cache-Control': cache,
+      ...(disposition ? { 'Content-Disposition': disposition } : {}),
     })
     fs.createReadStream(file).pipe(res)
   })
