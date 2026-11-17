@@ -14,6 +14,7 @@ import { onServiceError } from './services/authExpired'
 import { useUiSchemeStore } from './store/uiSchemeStore'
 import { registerServiceWorker, setupInstallPrompt } from './lib/pwa'
 import { startSessionGuard } from './services/sessionGuard'
+import { resolveColorMode, type ColorScheme } from './lib/color-scheme'
 
 /**
  * PWA（P1-9）：安装事件要在启动最初就挂上（`beforeinstallprompt` 只派发一次），
@@ -128,25 +129,25 @@ function readThemeMode(): ThemeMode {
 function applyThemeAttribute(mode: ThemeMode) {
   document.documentElement.dataset.theme = mode
   document.documentElement.style.colorScheme = mode
-  /**
-   * 背景颜色由 `--bd-ink-rgb` 派生：深浅色切换后必须重新合成 alpha，
-   * 否则浅色下会残留深色的浅色星点（Canvas 读到的还是旧结果）。
-   */
-  useUiSchemeStore.getState().refreshBackdropPalette()
 }
 
 applyThemeAttribute(readThemeMode())
 
 /**
- * 主题宿主：跟随系统深浅色，**不提供手动开关**。
+ * 主题宿主：深浅色三档（跟随系统 / 强制浅色 / 强制深色）+ 对比度滑杆。
  *
- * 深浅色共用 `theme.ts` 的同一份语义令牌：切模式时只重算 MUI 主题，
- * CSS 变量由 `data-theme` 同步覆盖，所以不会出现"一半新色、一半旧色"的中间帧。
- * 监听 `change` 而不是轮询：系统主题切换时立即生效。
+ * 1) **override 优先**：用户在设置页选了强制浅/深，监听系统变化时不响应；
+ *    只有 `system` 模式下才会跟随系统切换；
+ * 2) **对比度影响两层**：背景层 alpha 预算 × multiplier（在 store.applyColorDOM 里合成），
+ *    正文次调色 `--ink2/--ink3` 由 CSS 的 `[data-contrast='enhance']` / `dimmed` 选择器微调；
+ * 3) 深浅色共用 `theme.ts` 的同一份语义令牌，切模式只重算 MUI 主题，
+ *    CSS 变量由 `data-theme` 同步覆盖，不会出现"一半新色、一半旧色"的中间帧。
  */
 function ThemeHost({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(readThemeMode)
+  const colorScheme = useUiSchemeStore((s) => s.colorScheme) as ColorScheme
+  const [systemDark, setSystemDark] = useState(() => readThemeMode() === 'dark')
 
+  // 只在 `system` override 下监听系统变化
   useEffect(() => {
     let mq: MediaQueryList | null = null
     try {
@@ -154,17 +155,20 @@ function ThemeHost({ children }: { children: React.ReactNode }) {
     } catch {
       return
     }
-    const onChange = (e: MediaQueryListEvent) => setMode(e.matches ? 'dark' : 'light')
-    setMode(mq.matches ? 'dark' : 'light')
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  useEffect(() => {
-    applyThemeAttribute(mode)
-  }, [mode])
+  const effectiveMode = resolveColorMode(colorScheme, systemDark)
 
-  const muiTheme = useMemo(() => buildTheme(mode), [mode])
+  useEffect(() => {
+    applyThemeAttribute(effectiveMode)
+    // 每次模式变化都让 store 重新合成背景颜色（底色 token 可能换了）
+    useUiSchemeStore.getState().applyColorDOM()
+  }, [effectiveMode])
+
+  const muiTheme = useMemo(() => buildTheme(effectiveMode), [effectiveMode])
 
   return (
     <ThemeProvider theme={muiTheme}>

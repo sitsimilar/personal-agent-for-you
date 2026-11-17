@@ -22,6 +22,7 @@ import {
   type BackdropTheme,
   type BackdropParamKey,
 } from '@/lib/backdrop'
+import { clampContrast, DEFAULT_CONTRAST } from '@/lib/color-scheme'
 
 /** 参数 → 最终数值的换算规则（集中一处，方便审阅安全边界）。 */
 const RANGE = {
@@ -34,6 +35,22 @@ const RANGE = {
   /** 等高线：最慢 600s 单程，最快 50s 单程。 */
   terrainSlow: 600,
   terrainFast: 50,
+  /**
+   * 对比度硬 cap —— 背景层 alpha 的绝对上限。
+   *
+   * 为什么 cap：对比度滑杆默认 1.0，允许最高 1.5× 放大，但底色预算本身
+   * 已经按正文对比度预留过余量。再往上会出现「背景盖过卡片分割线」，
+   * 用户可能误以为是内容。
+   *
+   * - 线：≤ 0.15（基准 0.10 × 1.5）—— 永远比卡片 1px 描边淡一半以上；
+   * - 点浅色：≤ 0.40（基准 0.30 × 1.33）；
+   * - 点深色：≤ 0.80（基准 0.62 × 1.29）；
+   * - 主色：≤ 0.45（基准 0.20 × 2.25）—— 品牌色亮时最显吵，这里 cap 更紧。
+   */
+  capDotLight: 0.40,
+  capDotDark: 0.80,
+  capLine: 0.15,
+  capAccent: 0.45,
 } as const
 
 function readNumber(style: CSSStyleDeclaration, name: string, fallback: number): number {
@@ -58,8 +75,16 @@ function composeRgba(rgb: string, alpha: number): string {
  *
  * 只写 `<html>` 上的自定义属性与 `data-backdrop`，不碰任何组件样式，
  * 所以换参数不会触发 React 重渲染之外的布局计算。
+ *
+ * @param theme 背景档位
+ * @param params 当前主题的参数（四元组）
+ * @param contrast 对比度 multiplier（1.0 = 默认，由 store.applyColorDOM 传入）
  */
-export function applyBackdropStyle(theme: BackdropTheme, params: BackdropParams): void {
+export function applyBackdropStyle(
+  theme: BackdropTheme,
+  params: BackdropParams,
+  contrast: number = DEFAULT_CONTRAST,
+): void {
   if (typeof document === 'undefined') return
   const root = document.documentElement
   root.dataset.backdrop = theme
@@ -70,24 +95,33 @@ export function applyBackdropStyle(theme: BackdropTheme, params: BackdropParams)
   const dotBase = readNumber(cs, '--bd-dot-a', 0.3)
   const lineBase = readNumber(cs, '--bd-line-a', 0.1)
   const accentBase = readNumber(cs, '--bd-accent-a', 0.2)
+  const isDark = root.dataset.theme === 'dark'
 
-  /**
-   * 强度直接对应「底色预算的使用比例」：100% 就是预留给背景的最大 alpha，
-   * 不额外放大 —— 这样滑杆的上限天然等于对比度预算的上限。
-   */
   const strength = Math.min(100, Math.max(0, params.intensity)) / 100
+  const mult = clampContrast(contrast)
 
   /**
-   * 模糊补偿：`filter: blur()` 把 1px 发丝线摊到 (1 + 2r) 像素上，峰值 alpha
-   * 近似按 1/(1+2r) 衰减 —— 4px 时只剩约 1/9，背景会看起来像被关掉了。
-   * 所以模糊 >1px 时按同一比例加宽线宽（只加宽、不加 alpha）：
-   * 总墨量守恒，对比度预算不变，但形体还能看见。
+   * 对比度乘进 alpha —— 但有硬 cap：
+   * 底色预算 × 强度 × multiplier，结果 clamp 到 [0, cap]。
+   *
+   * 为什么用 multiplier 而不是直接改底色 token：
+   * 深浅色切换后底色预算本身已换（浅 0.30/深 0.62），直接覆盖 alpha
+   * 会让深色下看起来比浅色更吵。乘算保持三级叠加，深浅色自动对齐。
    */
+  const rawDot = dotBase * strength * mult
+  const rawLine = lineBase * strength * mult
+  const rawAccent = accentBase * strength * mult
+
+  const dotCap = isDark ? RANGE.capDotDark : RANGE.capDotLight
+  const dot = Math.min(dotCap, Math.max(0, rawDot))
+  const line = Math.min(RANGE.capLine, Math.max(0, rawLine))
+  const accent = Math.min(RANGE.capAccent, Math.max(0, rawAccent))
+
   const blurComp = params.blur > 1 ? 1 + ((params.blur - 1) / 3) * 2.2 : 1
 
-  root.style.setProperty('--bd-dot', composeRgba(rgb, dotBase * strength))
-  root.style.setProperty('--bd-line', composeRgba(rgb, lineBase * strength))
-  root.style.setProperty('--bd-accent', composeRgba(accentRgb, accentBase * strength))
+  root.style.setProperty('--bd-dot', composeRgba(rgb, dot))
+  root.style.setProperty('--bd-line', composeRgba(rgb, line))
+  root.style.setProperty('--bd-accent', composeRgba(accentRgb, accent))
   root.style.setProperty(
     '--bd-stroke-w',
     `${((RANGE.strokeMin + (RANGE.strokeMax - RANGE.strokeMin) * strength) * blurComp).toFixed(2)}px`,

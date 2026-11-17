@@ -47,6 +47,15 @@ import {
   type BackdropTheme,
 } from '@/lib/backdrop'
 import { applyBackdropStyle } from '@/lib/backdrop-style'
+import {
+  DEFAULT_CONTRAST,
+  clampContrast,
+  normalizeColorScheme,
+  readColorPreference,
+  writeColorPreference,
+  resolveColorMode,
+  type ColorScheme,
+} from '@/lib/color-scheme'
 import { profileService } from '@/services/profileService'
 import type { SettingsRow } from '@/lib/database.types'
 
@@ -72,6 +81,10 @@ interface UiSchemeState {
   backdrop: BackdropTheme
   /** 每套主题各自的参数（用户改过谁就记住谁，切主题不互相污染）。 */
   backdropParams: Record<BackdropTheme, BackdropParams>
+  /** 深浅色 override（`system`/`light`/`dark`）。 */
+  colorScheme: ColorScheme
+  /** 对比度 0.6–1.5（默认 1.0）。 */
+  contrast: number
 }
 
 interface UiSchemeActions {
@@ -111,6 +124,12 @@ interface UiSchemeActions {
   resetBackdropParams: () => void
   /** 深浅色切换后重算背景颜色（底色 token 变了，需要重新合成 alpha）。 */
   refreshBackdropPalette: () => void
+  /** 切换深浅色 override：`system` / `light` / `dark`。立即写 DOM + localStorage。 */
+  setColorScheme: (next: unknown) => ColorScheme
+  /** 调对比度（0.6–1.5）；立即生效。 */
+  setContrast: (value: number) => void
+  /** 深浅色 override + 对比度 → 写 `<html data-theme>` 与 `data-contrast`（DOM 副作用集中在此）。 */
+  applyColorDOM: () => void
 }
 
 export type UiSchemeStore = UiSchemeState & UiSchemeActions
@@ -126,9 +145,10 @@ function applyToDocument(scheme: UiScheme): void {
  *
  * 为什么不复用 `applyBackdropToDocument`：参数要编译成线宽/颜色/时长，
  * 逻辑在 `lib/backdrop-style.ts`，这里只负责调用，保证「状态 → 视觉」单一路径。
+ * 对比度 multiplier 从当前 state 读——wrapper 内部拿，调用方不用关心。
  */
 function applyBackdrop(theme: BackdropTheme, params: BackdropParams): void {
-  applyBackdropStyle(theme, params)
+  applyBackdropStyle(theme, params, useUiSchemeStore.getState().contrast)
 }
 
 /** 读本地背景偏好（任何异常都当作“没存过”，参数补默认值）。 */
@@ -208,17 +228,25 @@ export const useUiSchemeStore = create<UiSchemeStore>((set, get) => ({
   settingsId: null,
   backdrop: DEFAULT_BACKDROP,
   backdropParams: { ...BACKDROP_DEFAULTS },
+  colorScheme: 'system',
+  contrast: DEFAULT_CONTRAST,
 
   hydrateLocal: () => {
     if (get().hydrated) return
     const scheme = readLocal()
     const pref = readLocalBackdrop()
+    const color = readColorPreference()
     applyToDocument(scheme)
+    // 深浅色先写 DOM（`data-theme`），背景合成依赖它的底色 token
+    get().setColorScheme(color.scheme)
+    get().setContrast(color.contrast)
     applyBackdrop(pref.theme, pref.params[pref.theme])
     set({
       scheme,
       backdrop: pref.theme,
       backdropParams: pref.params,
+      colorScheme: color.scheme,
+      contrast: color.contrast,
       source: scheme === DEFAULT_UI_SCHEME ? 'default' : 'local',
       hydrated: true,
       previous: null,
@@ -317,6 +345,46 @@ export const useUiSchemeStore = create<UiSchemeStore>((set, get) => ({
   refreshBackdropPalette: () => {
     const { backdrop, backdropParams } = get()
     applyBackdrop(backdrop, backdropParams[backdrop])
+  },
+
+  /** 深浅色 override + 对比度 → 写 `<html data-theme>` 与 `data-contrast`。 */
+  applyColorDOM: () => {
+    const root = document.documentElement
+    const { colorScheme, contrast } = get()
+    // 系统色 = 当前 matchMedia 的结果（`system` 模式才会变）
+    let systemDark = false
+    try {
+      systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+    } catch {
+      systemDark = false
+    }
+    const effective = resolveColorMode(colorScheme, systemDark)
+    root.dataset.theme = effective
+    root.style.colorScheme = effective
+    // 对比度档位（JS 算好乘数，CSS 里 [data-contrast] 选择器只做色板微调）
+    if (contrast >= 1.3) root.dataset.contrast = 'enhance'
+    else if (contrast <= 0.8) root.dataset.contrast = 'dimmed'
+    else root.removeAttribute('data-contrast')
+    // 对比度也影响背景 alpha 预算 —— 直接重新合成
+    get().refreshBackdropPalette()
+  },
+
+  setColorScheme: (next) => {
+    const previous = get().colorScheme
+    const scheme = normalizeColorScheme(next)
+    if (scheme === previous) return scheme
+    set({ colorScheme: scheme })
+    get().applyColorDOM()
+    writeColorPreference({ scheme, contrast: get().contrast })
+    return previous
+  },
+
+  setContrast: (value) => {
+    const contrast = clampContrast(value)
+    if (contrast === get().contrast) return
+    set({ contrast })
+    get().applyColorDOM()
+    writeColorPreference({ scheme: get().colorScheme, contrast })
   },
 }))
 

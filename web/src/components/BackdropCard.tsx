@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Card, CardContent, Chip, Slider, Typography } from '@mui/material'
+import { Box, Button, Card, CardContent, Chip, Slider, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined'
+import ContrastOutlinedIcon from '@mui/icons-material/ContrastOutlined'
 import { useUiSchemeStore } from '@/store/uiSchemeStore'
 import { pushNotice } from '@/store/noticeStore'
 import {
@@ -14,6 +17,14 @@ import {
   isBackdropDefault,
   type BackdropTheme,
 } from '@/lib/backdrop'
+import {
+  CONTRAST_STEP,
+  DEFAULT_CONTRAST,
+  MAX_CONTRAST,
+  MIN_CONTRAST,
+  getColorSchemeName,
+  type ColorScheme,
+} from '@/lib/color-scheme'
 
 /**
  * 设置页「背景氛围」卡片：主题 + 四个参数。
@@ -121,11 +132,24 @@ export default function BackdropCard() {
   const setBackdrop = useUiSchemeStore((s) => s.setBackdrop)
   const setBackdropParam = useUiSchemeStore((s) => s.setBackdropParam)
   const resetBackdropParams = useUiSchemeStore((s) => s.resetBackdropParams)
+  const colorScheme = useUiSchemeStore((s) => s.colorScheme)
+  const contrast = useUiSchemeStore((s) => s.contrast)
+  const setColorScheme = useUiSchemeStore((s) => s.setColorScheme)
+  const setContrast = useUiSchemeStore((s) => s.setContrast)
   const reduced = useReducedMotion()
   const active = getBackdropMeta(backdrop)
   const disabled = backdrop === 'off'
   const defaults = BACKDROP_DEFAULTS[backdrop]
   const atDefault = isBackdropDefault(backdrop, params)
+
+  const pickColor = (next: ColorScheme) => {
+    if (next === colorScheme) return
+    const previous = setColorScheme(next)
+    pushNotice(`深浅色已切换为「${getColorSchemeName(next)}」`, 'info', {
+      label: '撤销',
+      onAction: () => useUiSchemeStore.getState().setColorScheme(previous),
+    })
+  }
 
   const pick = (next: BackdropTheme) => {
     if (next === backdrop) return
@@ -139,21 +163,128 @@ export default function BackdropCard() {
   }
 
   const restore = () => {
-    if (atDefault) return
+    if (atDefault && contrast === DEFAULT_CONTRAST) return
     resetBackdropParams()
-    pushNotice(`已恢复「${active.name}」的推荐参数`, 'info')
+    setContrast(DEFAULT_CONTRAST)
+    pushNotice(`已恢复「${active.name}」的推荐参数 + 默认对比度`, 'info')
   }
 
   return (
     <Card variant="outlined" id="ui-backdrop" sx={{ mb: 2 }}>
       <CardContent>
         <Typography variant="subtitle2" gutterBottom>
-          背景氛围
+          外观
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
-          四选一，点选即时生效，只改画布底纹。
-          <b>只存本机</b>（不写账号，换设备不会同步）；选「关闭」即刻停止全部渲染。
+          深浅色三档（跟随系统 / 强制浅色 / 强制深色）+ 对比度滑杆；
+          背景氛围在下面四选一。<b>都只存本机</b>（不写账号，换设备不会同步）。
         </Typography>
+
+        {/* ---- 深浅色 + 对比度 ---- */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1.1fr) minmax(0, 1fr)' },
+          gap: 2,
+          pb: 2,
+          mb: 2,
+          borderBottom: '1px dashed',
+          borderColor: 'divider',
+        }}>
+          {/* 深浅色 */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
+              <LightModeOutlinedIcon sx={{ fontSize: 15, color: 'var(--ink3)' }} />
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>深浅色</Typography>
+              {colorScheme !== 'system' && (
+                <Box
+                  component="span"
+                  sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'primary.main' }}
+                />
+              )}
+            </Box>
+            <ToggleButtonGroup
+              value={colorScheme}
+              exclusive
+              size="small"
+              onChange={(_e, v) => v && pickColor(v as ColorScheme)}
+              aria-label="深浅色模式"
+              sx={{
+                height: 30,
+                '& .MuiToggleButton-root': {
+                  fontSize: 11.5,
+                  px: 1.25,
+                  borderColor: 'divider',
+                  '&.Mui-selected': {
+                    bgcolor: 'action.selected',
+                    color: 'primary.main',
+                    fontWeight: 600,
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="light" aria-label="强制浅色">
+                浅色
+              </ToggleButton>
+              <ToggleButton value="system" aria-label="跟随系统">
+                跟随系统
+              </ToggleButton>
+              <ToggleButton value="dark" aria-label="强制深色">
+                深色
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <Typography sx={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5, mt: 0.75 }}>
+              默认「跟随系统」。切到强制档位后系统深浅色变化不会自动跟随；
+              切回「跟随系统」立即恢复监听。
+            </Typography>
+          </Box>
+
+          {/* 对比度 */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+              <ContrastOutlinedIcon sx={{ fontSize: 15, color: 'var(--ink3)' }} />
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>对比度</Typography>
+              {contrast !== DEFAULT_CONTRAST && (
+                <Box
+                  component="span"
+                  sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'primary.main' }}
+                />
+              )}
+              <Box sx={{ flex: 1 }} />
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  fontFamily: '"JetBrains Mono", SFMono-Regular, Consolas, monospace',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: contrast === DEFAULT_CONTRAST ? 'var(--ink3)' : 'primary.main',
+                  fontFeatureSettings: '"tnum"',
+                }}
+              >
+                {contrast.toFixed(1)}×
+              </Typography>
+            </Box>
+            <Slider
+              size="small"
+              value={contrast}
+              min={MIN_CONTRAST}
+              max={MAX_CONTRAST}
+              step={CONTRAST_STEP}
+              marks={[
+                { value: MIN_CONTRAST, label: '柔和' },
+                { value: DEFAULT_CONTRAST, label: '默认' },
+                { value: MAX_CONTRAST, label: '增强' },
+              ]}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v.toFixed(1)}×`}
+              onChange={(_e, v) => setContrast(v as number)}
+              aria-label={`对比度，当前 ${contrast.toFixed(1)}×`}
+              sx={{ mt: 0.25, mb: '26px', '& .MuiSlider-markLabel': { fontSize: 10, color: 'var(--ink3)' } }}
+            />
+            <Typography sx={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>
+              同时作用于背景层 alpha 预算（柔和 ×0.6 / 增强 ×1.5）与正文次调色。
+              硬 cap 保证不会盖过正文。
+            </Typography>
+          </Box>
+        </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
           {BACKDROP_ORDER.map((id) => {

@@ -186,6 +186,67 @@
 }
 
 /**
+ * 对比度档位（v2.15 新增）。
+ *
+ * store.applyColorDOM 会根据 multiplier 把 `<html data-contrast='enhance|dimmed'>`
+ * 写上去——≥1.3 enhance、≤0.8 dimmed。JS 负责背景层 alpha 的 multiplier，
+ * 这里只改正文次调色，保证**正文主色与卡片底色**的 WCAG AA 4.5:1 底线不动。
+ *
+ * 三档选择器规则：
+ * - enhance：次调色更靠近主色（浅更深、深更亮）；网格线略加强；品牌色软底加深；
+ * - dimmed：次调色退向画布；网格线减淡；品牌色软底变浅；
+ * - 默认：不命中任何 data-contrast 属性，用 :root / [data-theme='dark'] 的值。
+ */
+
+/* ---- 浅色增强 ---- */
+:root[data-theme='light'][data-contrast='enhance'] {
+  --ink2: #3a3a43;                /* 原 #5f5f6b → 加墨 */
+  --ink3: #6d6d7a;                /* 原 #9a9aa6 → 加墨 */
+  --line: #dcdce5;                /* 原 #ececf1 → 加深 */
+  --line-strong: #a8a8bb;         /* 原 #c6c6d3 → 加深 */
+  --grid-line: rgba(24, 24, 27, 0.065); /* 原 0.045 → ×1.44 */
+  --brand-soft: rgba(91, 84, 217, 0.12); /* 原 0.08 → 加深 */
+  --brand-soft-2: rgba(91, 84, 217, 0.2); /* 原 0.14 → 加深 */
+  --surface-2: #ebebef;           /* 原 #f4f4f7 → 加深 */
+}
+
+/* ---- 浅色减弱 ---- */
+:root[data-theme='light'][data-contrast='dimmed'] {
+  --ink2: #7e7e8a;
+  --ink3: #b5b5bf;
+  --line: #f1f1f5;
+  --line-strong: #d6d6df;
+  --grid-line: rgba(24, 24, 27, 0.03);
+  --brand-soft: rgba(91, 84, 217, 0.05);
+  --brand-soft-2: rgba(91, 84, 217, 0.1);
+  --surface-2: #f7f7fb;
+}
+
+/* ---- 深色增强 ---- */
+:root[data-theme='dark'][data-contrast='enhance'] {
+  --ink2: #c7c7d6;                /* 原 #a5a5b4 → 提亮 */
+  --ink3: #9a9aaf;                /* 原 #74748a → 提亮 */
+  --line: #33333f;                /* 原 #24242d → 提亮 */
+  --line-strong: #5a5a6d;         /* 原 #484857 → 提亮 */
+  --grid-line: rgba(255, 255, 255, 0.08); /* 原 0.05 → ×1.6 */
+  --brand-soft: rgba(140, 134, 255, 0.18); /* 原 0.12 → 加深 */
+  --brand-soft-2: rgba(140, 134, 255, 0.28); /* 原 0.2 → 加深 */
+  --surface-2: #262630;           /* 原 #1d1d25 → 提亮 */
+}
+
+/* ---- 深色减弱 ---- */
+:root[data-theme='dark'][data-contrast='dimmed'] {
+  --ink2: #8b8ba0;
+  --ink3: #5d5d73;
+  --line: #1b1b23;
+  --line-strong: #383846;
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --brand-soft: rgba(140, 134, 255, 0.08);
+  --brand-soft-2: rgba(140, 134, 255, 0.14);
+  --surface-2: #16161e;
+}
+
+/**
  * 方案 B · 分区骨架：动布局，不动动效。
  * 容器统一 1120px、栅格间距放宽到 20px、页眉带出现分隔线。
  */

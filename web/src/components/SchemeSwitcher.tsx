@@ -28,6 +28,8 @@ import {
   type BackdropTheme,
 } from '@/lib/backdrop'
 
+import { getColorSchemeName, type ColorScheme } from '@/lib/color-scheme'
+
 /**
  * 顶栏「界面方案」快捷入口（方案切换的独立入口之一，另一个在设置页）。
  *
@@ -45,8 +47,10 @@ export default function SchemeSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const scheme = useUiSchemeStore((s) => s.scheme)
   const backdrop = useUiSchemeStore((s) => s.backdrop)
+  const colorScheme = useUiSchemeStore((s) => s.colorScheme)
   const setScheme = useUiSchemeStore((s) => s.setScheme)
   const setBackdrop = useUiSchemeStore((s) => s.setBackdrop)
+  const setColorScheme = useUiSchemeStore((s) => s.setColorScheme)
   const navigate = useNavigate()
 
   const handleOpen = (e: MouseEvent<HTMLElement>) => setAnchor(e.currentTarget)
@@ -74,6 +78,16 @@ export default function SchemeSwitcher() {
       onAction: () => {
         useUiSchemeStore.getState().setBackdrop(previous)
       },
+    })
+  }
+
+  /** 深浅色三档快捷切换。 */
+  const pickColor = (next: ColorScheme) => {
+    if (next === colorScheme) return
+    const previous = setColorScheme(next)
+    pushNotice(`深浅色已切换为「${getColorSchemeName(next)}」`, 'info', {
+      label: '撤销',
+      onAction: () => useUiSchemeStore.getState().setColorScheme(previous),
     })
   }
 
@@ -144,6 +158,27 @@ export default function SchemeSwitcher() {
             </ListItemButton>
           )
         })}
+
+        <Divider />
+        <Box sx={{ px: 2, py: 1.25 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>深浅色</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25, mb: 0.75 }}>
+            默认「跟随系统」；切强制档位后系统变化不自动跟随
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {(['system', 'light', 'dark'] as const).map((id) => (
+              <Chip
+                key={id}
+                size="small"
+                label={getColorSchemeName(id)}
+                color={id === colorScheme ? 'primary' : 'default'}
+                variant={id === colorScheme ? 'filled' : 'outlined'}
+                onClick={() => pickColor(id)}
+                sx={{ height: 24, fontSize: 11.5 }}
+              />
+            ))}
+          </Box>
+        </Box>
 
         <Divider />
         <Box sx={{ px: 2, py: 1.25 }}>
