@@ -216,3 +216,77 @@ export function resolveContentRatio(
   if (!Number.isFinite(ratio)) return 1
   return Math.min(1, Math.max(0, ratio))
 }
+
+/* ============================================================================
+ * 记录列表密度（P1-8 上半）
+ * ============================================================================
+ *
+ * 桌面上的 `RecordCard` 一屏 3~4 列，每张卡带链接封面、摘要、分类与标签——信息密度
+ * 是优势。但 375 档的手机上，同一张卡占满整行、高度 260px 以上，一屏只放得下一张半，
+ * 摘要被截成两行、封面把「标题 + 时间」顶到折叠线以下，**看列表变成了翻卡片**。
+ *
+ * 所以窄屏换成「一行一条」的紧凑列表：类型图标 + 标题 + 时间/分类 + 状态，
+ * 一行 56px（触摸目标下限 44 + 呼吸），一屏能看到 8~9 条。宽屏（≥ 600）仍是多列卡片，
+ * 密度一点不降——这也是本条验收的另一半。
+ *
+ * ## 为什么阈值是 600，而不是骨架的 768
+ *
+ * 768 是「侧栏常驻/抽屉」的分界，讲的是**导航形态**；600 是「一列/多列」的分界，
+ * 讲的是**内容密度**。600~767 之间（竖屏平板、折叠屏展开）侧栏已经收起、内容区有
+ * 560~700px 宽，两列卡片放得下且不局促，没必要降级成单列。两者语义不同，刻意不复用。
+ *
+ * 判定同样做成纯函数：`RecordsPage` 只负责把 `useMediaQuery` 的布尔值转成密度，
+ * 边界（599 / 600）由单测钉死。
+ */
+
+/** 紧凑列表的最大视口宽度（px，含）。超过此宽度回到多列卡片。 */
+export const COMPACT_LIST_MAX_WIDTH = 600
+
+/**
+ * 紧凑行的高度（px，含）。
+ *
+ * 不能低于 44（触摸目标下限），这里取 56：44 只是「能点中」，56 才有「一行一条、
+ * 扫读时不误点」的呼吸。降级的是信息量，不是可点面积。
+ */
+export const COMPACT_ROW_MIN_HEIGHT = 56
+
+/** 列表密度：`compact` 单列一行一条，`grid` 多列卡片。 */
+export type RecordListDensity = 'compact' | 'grid'
+
+/**
+ * 生成「紧凑列表」的媒体查询。
+ *
+ * 减 `0.05` 是 MUI 断点的惯用写法：`max-width: 600px` 会把 600.4 这类亚像素宽度
+ * 也算进来，和 `resolveRecordListDensity(600) === 'grid'` 的判定打架。减掉 0.05 后
+ * 媒体查询命中区间是 `width < 600`，与纯函数严格一致。
+ *
+ * @param maxWidth 分界宽度（px），默认取唯一事实源。
+ */
+export function compactListMediaQuery(maxWidth: number = COMPACT_LIST_MAX_WIDTH): string {
+  const width = Number.isFinite(maxWidth) && maxWidth > 0 ? maxWidth : COMPACT_LIST_MAX_WIDTH
+  return `(max-width: ${width - 0.05}px)`
+}
+
+/**
+ * 按视口宽度判定列表密度。
+ *
+ * 非法输入（`NaN` / `Infinity` / `<= 0`）回落 `compact`：
+ * 手机与异常环境里宁可给一列（内容不会横向溢出），也不要赌多列撑破版心。
+ *
+ * @param viewportWidth 视口宽度（CSS px）。
+ * @returns `< 600` 为 `compact`，其余 `grid`。
+ */
+export function resolveRecordListDensity(viewportWidth: number): RecordListDensity {
+  if (!Number.isFinite(viewportWidth) || viewportWidth <= 0) return 'compact'
+  return viewportWidth < COMPACT_LIST_MAX_WIDTH ? 'compact' : 'grid'
+}
+
+/**
+ * 把 `useMediaQuery(compactListMediaQuery())` 的布尔结果转成密度。
+ *
+ * `RecordsPage` 必须走这个入口，不要在页面里写 `dense ? 'compact' : 'grid'`：
+ * 判定只留一处，将来加「中等密度」时不会漏改。
+ */
+export function resolveRecordListDensityFromMatch(matched: boolean): RecordListDensity {
+  return matched ? 'compact' : 'grid'
+}

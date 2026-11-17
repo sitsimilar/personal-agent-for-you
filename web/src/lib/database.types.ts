@@ -154,6 +154,24 @@ export interface MindTreesRow {
   updated_at: string
 }
 
+/**
+ * 设备注册表（v2.15 多端同时在线）。
+ *
+ * `(owner_id, device_id)` 唯一；`device_id` 是客户端 localStorage 里的稳定随机 ID，
+ * 卸载重装会变（即视为新设备）。`revoked_at` 非空表示已被其它设备「请下线」。
+ */
+export interface DevicesRow {
+  id: number
+  owner_id: string
+  device_id: string
+  platform: string
+  label: string
+  app_version: string
+  created_at: string
+  last_seen_at: string
+  revoked_at: string | null
+}
+
 interface TableDef<Row> {
   Row: Row
   Insert: Record<string, unknown>
@@ -170,6 +188,7 @@ export interface Database {
     images: TableDef<ImagesRow>
     plugins: TableDef<PluginsRow>
     mind_trees: TableDef<MindTreesRow>
+    devices: TableDef<DevicesRow>
   }
   Views: Record<string, never>
   Functions: Record<string, never>

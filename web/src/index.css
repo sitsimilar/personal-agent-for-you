@@ -4,63 +4,185 @@
 
 /**
  * ============================================================
- *  界面方案令牌层（v2.13.2 UI-1）
+ *  设计语言「线构 · Line Geometry」令牌层（v2.14）
  * ============================================================
  *
- * 三套方案（静默 / 分区 / 流畅）的差异**只在这里**与布局能力位里体现，
- * 组件代码一律读变量或读能力位，不写 `if (scheme === ...)` 散落判断。
+ * 母题只有三种：
+ *   线   1px 发丝描边承担层级，阴影只作贴地（不做大面积色块）
+ *   点   6px 圆点 / 32px 方形字形块表达类型与状态
+ *   切角 卡片右上角 14px L 形直角，悬停时 0 → 1 出现
  *
- * 层次关系（改之前先读 `lib/ui-scheme.ts` 文件头）：
- *   :root            → 地基（= 方案 A 静默化的收敛令牌，三方案共享）
- *   [data-scheme=zoned] → 地基 + 布局变量（容器宽度 / 栅格间距 / 卡片抬起）
- *   [data-scheme=fluid] → 地基 + 动效变量（分档时长 / 骨架屏 / 位移动画）
+ * 层次关系（改之前先读 `theme.ts` 与 `lib/ui-scheme.ts` 文件头）：
+ *   :root                  → 浅色语义令牌（三套界面方案共用）
+ *   [data-theme='dark']    → 深色语义令牌（同名同义，只换取值）
+ *   [data-scheme='zoned']  → 布局变量（容器宽度 / 栅格间距 / 卡片抬起）
+ *   [data-scheme='fluid']  → 动效变量（分档时长 / 位移动画）
  *
- * 因此切方案时**视觉基调不变**，只有布局或动效变化 —— 这是刻意设计，
- * 避免"颜色也变、位置也变"让用户以为点了什么奇怪的东西。
+ * 组件只允许读变量或 MUI theme，不要写死颜色与时长。
  */
 
 :root {
-  /* ---- 颜色（收敛后：主色只在主操作与当前导航项出现） ---- */
+  color-scheme: light;
+
+  /* ---- 颜色：语义色（浅色） ---- */
   --brand: #5b54d9;
   --brand-dark: #4a43c4;
+  --brand-light: #6b64e3;
   --brand-soft: rgba(91, 84, 217, 0.08);
-  --brand-soft-2: rgba(91, 84, 217, 0.12);
+  --brand-soft-2: rgba(91, 84, 217, 0.14);
+
   --ink: #18181b;
-  --ink2: #64646e;
+  --ink2: #5f5f6b;
   --ink3: #9a9aa6;
-  --line: #efeff3;
-  --line2: #e7e7ec;
+
+  --line: #ececf1;
+  --line2: #e2e2e9;
+  --line-strong: #c6c6d3;
+
   --surface: #ffffff;
+  --surface-2: #f4f4f7;
   --canvas: #f7f7f9;
 
-  /* ---- 圆角三档 ---- */
-  --r-ctl: 8px;
-  --r-card: 12px;
-  --r-pop: 16px;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #c4342f;
+  --info: #0e7490;
 
-  /* ---- 层级双层 ---- */
-  --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.05);
-  --shadow-hover: 0 6px 16px -6px rgba(24, 24, 27, 0.16), 0 1px 2px rgba(24, 24, 27, 0.05);
+  --grid-line: rgba(24, 24, 27, 0.045);
+  --focus-ring: rgba(91, 84, 217, 0.55);
 
-  /* ---- 字号五档 ---- */
+  /* ---- 字号六档 + 行高 / 字距 ---- */
+  --fs-hero: 30px;
   --fs-display: 24px;
   --fs-title: 16px;
   --fs-body: 14px;
   --fs-meta: 13px;
   --fs-caption: 11.5px;
+  --lh-tight: 1.25;
+  --lh-body: 1.6;
+  --tracking-label: 0.14em;
+  --tracking-tight: -0.01em;
+
+  /* ---- 间距节奏（4pt） ---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* ---- 圆角四档 + 胶囊 ---- */
+  --r-mark: 3px;
+  --r-ctl: 8px;
+  --r-card: 12px;
+  --r-pop: 16px;
+  --r-pill: 999px;
+
+  /* ---- 描边三档 ---- */
+  --stroke: 1px;
+  --stroke-strong: 1.5px;
+  --stroke-accent: 2px;
+
+  /* ---- 几何母题 ---- */
+  --geo-cut: 14px;
+  --geo-grid: 48px;
+  --geo-dot: 6px;
+
+  /* ---- 层级：发丝线为主，阴影只贴地 ---- */
+  --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-hover: 0 10px 24px -14px rgba(24, 24, 27, 0.28), 0 1px 2px rgba(24, 24, 27, 0.04);
+
+  /* ---- 骨架屏 ---- */
+  --skeleton-a: #ececf2;
+  --skeleton-b: #f7f7fa;
 
   /* ---- 布局（方案 A 保持现状：各页自定宽度，栅格不额外加宽） ---- */
   --content-max: none;
   --layout-gap: 16px;
   --header-band-divider: transparent;
 
-  /* ---- 动效（方案 A 沿用单一 180ms，不改既有手感） ---- */
-  --motion-enter: 180ms;
-  --motion-exit: 180ms;
-  --motion-move: 180ms;
-  --motion-ease-enter: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-ease-exit: cubic-bezier(0.4, 0, 0.2, 1);
+  /* ---- 动效四档 + 错峰 ---- */
+  --motion-press: 90ms;
+  --motion-fast: 120ms;
+  --motion-enter: 200ms;
+  --motion-exit: 140ms;
+  --motion-move: 240ms;
+  --motion-stagger: 26ms;
+  --motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-spring: cubic-bezier(0.2, 0.9, 0.2, 1);
   --page-in-shift: 8px;
+
+  /* ---- 背景氛围（第二层画布）：只给装饰层用，正文仍落在 --surface 上 ---- */
+  /* 底色用「RGB 三元组 + 基准 alpha」表达，实际 alpha = 基准 × 强度（JS 合成） */
+  --bd-ink-rgb: 24 24 27;
+  --bd-accent-rgb: 91 84 217;
+  --bd-dot-a: 0.3;
+  --bd-line-a: 0.1;
+  --bd-accent-a: 0.2;
+  /* 以下为初始值，也是 JS 未执行时的兜底；启动后由 store 按参数覆盖 */
+  --bd-dot: rgba(24, 24, 27, 0.3);
+  --bd-line: rgba(24, 24, 27, 0.1);
+  --bd-accent: rgba(91, 84, 217, 0.2);
+  --bd-stroke-w: 1px;
+  --bd-blur: 0px;
+  --bd-layer-opacity: 0.85;
+  --bd-spin-duration: 147s;
+  --bd-spin-duration-b: 91s;
+  --bd-drift-duration: 174s;
+  --bd-run: running;
+}
+
+/**
+ * 深色令牌：不是反相 —— 卡片比画布亮一档（#16161C > #0F0F13），
+ * 描边比浅色更明显，主色提亮以保证 4.5:1 对比度。
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --brand: #8c86ff;
+  --brand-dark: #736ceb;
+  --brand-light: #a6a0ff;
+  --brand-soft: rgba(140, 134, 255, 0.12);
+  --brand-soft-2: rgba(140, 134, 255, 0.2);
+
+  --ink: #f2f2f6;
+  --ink2: #a5a5b4;
+  --ink3: #74748a;
+
+  --line: #24242d;
+  --line2: #30303b;
+  --line-strong: #484857;
+
+  --surface: #16161c;
+  --surface-2: #1d1d25;
+  --canvas: #0f0f13;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #67e8f9;
+
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --focus-ring: rgba(140, 134, 255, 0.65);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 14px 30px -18px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.5);
+
+  --skeleton-a: #20202a;
+  --skeleton-b: #2b2b36;
+
+  --bd-ink-rgb: 242 242 246;
+  --bd-accent-rgb: 140 134 255;
+  --bd-dot-a: 0.62;
+  --bd-line-a: 0.1;
+  --bd-accent-a: 0.3;
+  --bd-dot: rgba(242, 242, 246, 0.62);
+  --bd-line: rgba(255, 255, 255, 0.1);
+  --bd-accent: rgba(140, 134, 255, 0.3);
 }
 
 /**
@@ -93,18 +215,34 @@ body,
   margin: 0;
 }
 
+/**
+ * 页面画布：4% 透明度的 48px 几何网格。
+ *
+ * 只在内容区的内边距里露出来 —— 卡片是不透明白底，所以它不会干扰阅读；
+ * 深色下把网格线换成白色 5%，避免"黑上叠黑"看不见。
+ */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
   background-color: var(--canvas);
+  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--geo-grid) var(--geo-grid);
   color: var(--ink);
   font-size: var(--fs-body);
-  line-height: 1.55;
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: var(--brand-soft-2);
+  color: var(--ink);
 }
 
 /* 悬浮窗（companion 模式）拖拽区 */
@@ -125,15 +263,19 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* 滚动条美化 */
+/* 滚动条美化（跟随深浅色） */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 4px;
+  background-color: var(--line-strong);
+  border-radius: var(--r-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ink3);
 }
 
 ::-webkit-scrollbar-track {
@@ -141,7 +283,67 @@ body {
 }
 
 /* ============================================================
- *  通用过渡：一切动效走变量，方案切换即时改变手感
+ *  几何母题 1：切角（卡片右上角的 L 形直角）
+ * ============================================================ */
+
+.geo-frame {
+  position: relative;
+  isolation: isolate;
+}
+
+.geo-frame::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: var(--geo-cut);
+  height: var(--geo-cut);
+  border-top: var(--stroke-strong) solid var(--brand);
+  border-right: var(--stroke-strong) solid var(--brand);
+  border-top-right-radius: var(--r-card);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease-standard);
+  pointer-events: none;
+}
+
+.geo-frame:hover::after,
+.geo-frame:focus-within::after {
+  opacity: 0.9;
+}
+
+/* ============================================================
+ *  几何母题 2：线构卡片（1px 描边 + 悬停抬起）
+ * ============================================================ */
+
+.geo-card {
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--motion-move) var(--motion-ease-spring),
+    border-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-move) var(--motion-ease-spring);
+}
+
+@media (hover: hover) {
+  .geo-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-hover);
+  }
+}
+
+/* 按压反馈：只做 1.5% 缩放，不改变布局，点击"有回声"但不拖沓 */
+.press {
+  transition: transform var(--motion-press) var(--motion-ease-standard);
+}
+
+.press:active {
+  transform: scale(0.985);
+}
+
+/* ============================================================
+ *  动效：一切时长/曲线走变量，方案切换即时改变手感
  * ============================================================ */
 
 @keyframes page-in {
@@ -177,6 +379,17 @@ body {
   }
 }
 
+@keyframes geo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes skeleton-shimmer {
   from {
     background-position: 200% 0;
@@ -184,6 +397,22 @@ body {
   to {
     background-position: -200% 0;
   }
+}
+
+/* 加载态：细线圆环，只转 1px 描边，不铺色块 */
+@keyframes geo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.geo-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: var(--stroke-accent) solid var(--line);
+  border-top-color: var(--brand);
+  animation: geo-spin 720ms linear infinite;
 }
 
 .page-in {
@@ -194,6 +423,15 @@ body {
 }
 .boot-logo-in {
   animation: boot-logo-in var(--motion-enter) var(--motion-ease-enter);
+}
+
+/**
+ * 列表错峰：第 n 项延迟 n × 26ms（n 由组件通过 `--i` 传入，最多 8）。
+ * `backwards` 保证延迟期间保持"未进场"状态，不会先亮一下再动。
+ */
+.stagger-item {
+  animation: geo-rise var(--motion-enter) var(--motion-ease-enter) backwards;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
 }
 
 /* 方案 B：卡片"可点"自己说出来（悬停抬起 2px） */
@@ -207,12 +445,21 @@ body {
   box-shadow: var(--shadow-hover);
 }
 
-/* 方案 C：骨架屏占位（不改变布局尺寸，CLS 保持 0） */
+/* 骨架屏占位（不改变布局尺寸，CLS 保持 0） */
 .skeleton {
-  border-radius: var(--r-ctl);
-  background:
-    linear-gradient(90deg, #eeeef2 25%, #f6f6f9 37%, #eeeef2 63%) 0 0 / 200% 100%;
+  border-radius: var(--r-mark);
+  background: linear-gradient(90deg, var(--skeleton-a) 25%, var(--skeleton-b) 37%, var(--skeleton-a) 63%)
+    0 0 / 200% 100%;
   animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+/**
+ * 键盘焦点环：只在键盘操作时出现（`:focus-visible`），鼠标点击不画。
+ * MUI 自己的 focus 样式仍保留，这里只补"没有被组件覆盖到"的原生元素。
+ */
+:where(a, button, [role='button'], [tabindex]):focus-visible {
+  outline: var(--stroke-accent) solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /**
@@ -224,21 +471,283 @@ body {
   :root,
   :root[data-scheme='zoned'],
   :root[data-scheme='fluid'] {
+    --motion-press: 0ms;
+    --motion-fast: 0ms;
     --motion-enter: 0ms;
     --motion-exit: 0ms;
     --motion-move: 0ms;
+    --motion-stagger: 0ms;
     --page-in-shift: 0px;
   }
   .page-in,
   .panel-in,
-  .boot-logo-in {
+  .boot-logo-in,
+  .stagger-item {
     animation: none !important;
+  }
+  .geo-card,
+  .press {
+    transition: none;
+  }
+  .geo-card:hover,
+  .press:active {
+    transform: none;
   }
   .skeleton {
     animation: none;
-    background: #eeeef2;
+    background: var(--skeleton-a);
+  }
+  .geo-spinner {
+    animation-duration: 2400ms;
   }
   :root[data-scheme='zoned'] .card-lift:hover {
     transform: none;
+  }
+}
+
+/* ============================================================
+ *  背景氛围（第二层画布）
+ * ============================================================
+ * 挂在壳层最外层、内容区之下（`z-index: 0` / 内容 `z-index: 1`）。
+ * 只在留白处可见：卡片是不透明表面，所以正文对比度不受影响。
+ * 整层 `pointer-events: none`，不参与命中测试，输入框焦点与点击速度零影响。
+ */
+
+.bd-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  opacity: var(--bd-layer-opacity, 0.85);
+  /* 只过渡透明度：拖滑杆时不会有"闪一下"的跳变 */
+  transition: opacity 120ms linear;
+}
+
+/* ---- 轨道线：同心圆 + 轨道点 + 十字定位线（零帧循环） ---- */
+
+.bd-orbit {
+  position: absolute;
+  top: 50%;
+  right: -18vmin;
+  width: 78vmin;
+  height: 78vmin;
+  min-width: 320px;
+  min-height: 320px;
+  transform: translateY(-50%);
+  /* 模糊只作用于装饰层；正文在内容层，完全不受影响 */
+  filter: blur(var(--bd-blur, 0px));
+}
+
+.bd-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: var(--bd-stroke-w, 1px) solid var(--bd-line);
+  border-radius: 50%;
+}
+
+/**
+ * 轨道线主题 —— 细化版（v2）
+ *
+ * 三层改动，对应「细腻线条 + 柔和动效」：
+ * 1) 4 环而非 3 环，直径用黄金分割式递进（0.55 / 0.72 / 0.87 / 1.00），
+ *    并且给每一环独立的 stroke-opacity（外 → 内 = 100% → 55%），
+ *    这样同心圆看起来像「层次」，不像「三个圈」。
+ *    线条用 CSS `border` + `border-radius: 50%`，子像素宽度
+ *    （默认 `--bd-stroke-w` ≈ 0.78px）由浏览器自动抗锯齿，
+ *    比硬设 1px 柔和得多。
+ * 2) 三条轨道（而非两条），周期分别为
+ *    `--bd-spin-duration` / ×0.71（反向） / ×0.42（再反向），
+ *    初始角度各自错开 47° / 113°，所以开机时就不是机械对齐。
+ *    轨道节点用 `--bd-accent`（品牌色随主题）而不是 var(--brand)，
+ *    并且加 `box-shadow` 做发光晕（光晕 alpha 跟强度走）。
+ * 3) 十字线换成**虚线** + 低透明度 + 距圆心一段距离（从 22% 到 78%），
+ *    不再整根横穿；静态方形卫星点换成「第三轨道上的小节点」，
+ *    所有运动部件都做 `translate3d(0,0,0)` GPU 合成。
+ */
+
+.bd-ring-a {
+  /* 最外环 —— 最亮 */
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  opacity: 0.55;
+}
+
+.bd-ring-b {
+  /* 次外环 —— 品牌色 */
+  width: 72%;
+  height: 72%;
+  border-color: var(--bd-accent);
+  opacity: 0.72;
+  transform: translate(-50%, -50%);
+}
+
+.bd-ring-c {
+  /* 中环 —— 次亮 */
+  width: 55%;
+  height: 55%;
+  transform: translate(-50%, -50%);
+  opacity: 0.40;
+}
+
+.bd-ring-d {
+  /* 最内环 —— 最淡 */
+  width: 38%;
+  height: 38%;
+  transform: translate(-50%, -50%);
+  opacity: 0.28;
+}
+
+/* 轨道 = 与某一圈同尺寸的旋转容器；节点贴在 12 点方向，旋转即公转。
+   强制 GPU 合成 —— transform: translate3d + will-change，
+   保证 60fps 且在高 DPR 屏幕上不出现"边缘抖"。 */
+.bd-track {
+  position: absolute;
+  inset: 0;
+  animation: bd-spin var(--bd-spin-duration, 147s) linear infinite;
+  animation-play-state: var(--bd-run, running);
+  will-change: transform;
+}
+
+.bd-track-a {
+  animation-delay: -13s;
+  transform: translate3d(0, 0, 0) rotate(47deg);
+}
+
+.bd-track-b {
+  inset: 14%;           /* 贴次外环 (72%) */
+  animation-duration: calc(var(--bd-spin-duration, 147s) * 0.71);
+  animation-direction: reverse;
+  animation-delay: -29s;
+  transform: translate3d(0, 0, 0) rotate(-113deg);
+}
+
+.bd-track-c {
+  inset: 23%;           /* 贴中环 (55%) */
+  animation-duration: calc(var(--bd-spin-duration, 147s) * 0.42);
+  animation-delay: -7s;
+  transform: translate3d(0, 0, 0) rotate(221deg);
+}
+
+.bd-node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--bd-accent);
+  /* 柔和光晕：两层径向阴影，内层亮、外层散 */
+  box-shadow:
+    0 0 0.5px 0.5px var(--bd-accent),
+    0 0 4px 1px color-mix(in srgb, var(--bd-accent) 45%, transparent);
+  opacity: 0.82;
+}
+
+.bd-node-sm {
+  width: 3.5px;
+  height: 3.5px;
+  margin: -1.75px 0 0 -1.75px;
+  opacity: 0.62;
+  box-shadow:
+    0 0 0.5px 0.5px var(--bd-accent),
+    0 0 3px 0.5px color-mix(in srgb, var(--bd-accent) 30%, transparent);
+}
+
+/* 十字定位线：虚线 + 半幅，整根横穿太吵 */
+.bd-cross {
+  position: absolute;
+  background: transparent;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--bd-line) 65%, transparent);
+  border-width: 0;
+}
+
+.bd-cross-v {
+  left: 50%;
+  top: 22%;
+  width: 0;
+  height: 56%;
+  border-left-width: var(--bd-stroke-w, 1px);
+}
+
+.bd-cross-h {
+  top: 50%;
+  left: 22%;
+  height: 0;
+  width: 56%;
+  border-top-width: var(--bd-stroke-w, 1px);
+}
+
+/* 第三轨道上的小节点：三个小点，各自贴在 c 轨道不同角度 */
+.bd-sat {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: var(--bd-line);
+  opacity: 0.55;
+}
+
+.bd-sat-a { top: 0;  left: 50%; }
+.bd-sat-b { top: 45%; left: 89%; }
+.bd-sat-c { top: 82%; left: 32%; }
+
+@keyframes bd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Canvas 层：星野 / 等高线共用 ---- */
+
+.bd-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: blur(var(--bd-blur, 0px));
+}
+
+/**
+ * 等高线只画一次，飘移交给合成层：150s 一个来回，
+ * 幅度控制在 1.6%，是"几乎察觉不到在动"的量级。
+ */
+.bd-canvas-terrain {
+  transform-origin: 55% 50%;
+  animation: bd-drift var(--bd-drift-duration, 174s) ease-in-out infinite alternate;
+  animation-play-state: var(--bd-run, running);
+}
+
+@keyframes bd-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.03);
+  }
+  to {
+    transform: translate3d(-1.6%, -1%, 0) scale(1.06);
+  }
+}
+
+/* 窄屏：轨道簇缩小并右移出画布，避免和正文抢视线 */
+@media (max-width: 767px) {
+  .bd-orbit {
+    right: -42vmin;
+    width: 104vmin;
+    height: 104vmin;
+    opacity: 0.72;
+  }
+}
+
+/* 减弱动效：装饰层一律静止（JS 侧星野也只画一帧） */
+@media (prefers-reduced-motion: reduce) {
+  .bd-track,
+  .bd-canvas-terrain {
+    animation: none !important;
   }
 }

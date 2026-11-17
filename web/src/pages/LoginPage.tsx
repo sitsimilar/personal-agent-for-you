@@ -17,6 +17,7 @@ import { authService, PendingPhoneOtp } from '@/services/authService'
 import { useAuthStore } from '@/store/authStore'
 import { consumeRedirect } from '@/services/authExpired'
 import { friendlyError } from '@/lib/unwrap'
+import { isNativeShell } from '@/lib/platform'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -30,6 +31,8 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  // 原生壳（Android APK）里 OAuth 回跳地址不可用，见下方按钮处的说明
+  const nativeShell = isNativeShell()
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -176,9 +179,21 @@ export default function LoginPage() {
 
             <Divider>或</Divider>
 
-            <Button variant="outlined" size="large" onClick={wechatLogin}>
-              微信扫码登录
-            </Button>
+            {/*
+              Android 原生壳里**不提供微信扫码登录**：OAuth 的回跳地址是
+              `window.location.origin`，在 Capacitor 里等于 `https://localhost`，
+              微信开放平台不可能把用户重定向回这个地址，点了只会白屏。
+              手机号验证码登录在两种环境下走的是同一条链路，能力不打折。
+            */}
+            {nativeShell ? (
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                安卓 App 内请使用手机号验证码登录（微信扫码需回到网页版或桌面端）
+              </Typography>
+            ) : (
+              <Button variant="outlined" size="large" onClick={wechatLogin}>
+                微信扫码登录
+              </Button>
+            )}
 
             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
               登录即代表你同意数据仅用于本人信息管理，账号数据云端隔离存储

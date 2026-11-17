@@ -33,6 +33,13 @@ import RelatedRecords from './RelatedRecords'
 import LinkCover from './LinkCover'
 import RecurrenceField from './RecurrenceField'
 import SnoozeActions from './SnoozeActions'
+import GeoMark from './ui/GeoMark'
+
+const TYPE_LABEL: Record<InfoRecord['type'], string> = {
+  idea: 'IDEA · 想法',
+  material: 'MATERIAL · 资料',
+  todo: 'TODO · 待办',
+}
 
 interface RecordDetailProps {
   record: InfoRecord | null
@@ -177,8 +184,40 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ flex: 1 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box
+          aria-hidden
+          sx={{
+            width: 30,
+            height: 30,
+            flex: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mt: editing ? 0.5 : 0.25,
+            borderRadius: 'var(--r-ctl)',
+            border: 'var(--stroke) solid var(--line2)',
+            bgcolor: 'var(--brand-soft)',
+            color: 'primary.main',
+          }}
+        >
+          <GeoMark size={16} />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            component="div"
+            sx={{
+              fontSize: 'var(--fs-caption)',
+              fontWeight: 700,
+              letterSpacing: 'var(--tracking-label)',
+              color: 'text.secondary',
+              lineHeight: 1.4,
+              mb: editing ? 0.75 : 0.25,
+            }}
+          >
+            {TYPE_LABEL[record.type]}
+            {record.todoStatus === 'done' ? ' · 已完成' : ''}
+          </Typography>
           {editing ? (
             <TextField
               size="small"
@@ -188,7 +227,11 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
               label="标题"
             />
           ) : (
-            <Typography variant="h6" fontWeight={700}>
+            <Typography
+              variant="h6"
+              fontWeight={700}
+              sx={{ lineHeight: 1.35, letterSpacing: 'var(--tracking-tight)', wordBreak: 'break-word' }}
+            >
               {record.title || '（无标题）'}
             </Typography>
           )}
@@ -199,13 +242,13 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
           </Button>
         ) : (
           <Tooltip title="编辑">
-            <IconButton onClick={() => setEditing(true)}>
+            <IconButton onClick={() => setEditing(true)} aria-label="编辑">
               <EditIcon />
             </IconButton>
           </Tooltip>
         )}
         <Tooltip title="删除">
-          <IconButton onClick={remove}>
+          <IconButton onClick={remove} aria-label="删除">
             <DeleteIcon color="error" />
           </IconButton>
         </Tooltip>
@@ -218,11 +261,35 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
               <Chip
                 size="small"
                 label={record.category}
-                sx={{ bgcolor: `${categoryColor(record.category)}22`, color: categoryColor(record.category) }}
+                sx={{
+                  height: 22,
+                  fontSize: 11,
+                  bgcolor: `${categoryColor(record.category)}22`,
+                  color: categoryColor(record.category),
+                }}
               />
             )}
             {record.tags.map((tag) => (
-              <Chip key={tag} size="small" label={tag} variant="outlined" sx={{ color: tagColor(tag) }} />
+              <Box
+                key={tag}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  height: 22,
+                  px: 1,
+                  borderRadius: '6px',
+                  border: 'var(--stroke) solid var(--line2)',
+                  fontSize: 11,
+                  color: 'text.secondary',
+                }}
+              >
+                <Box
+                  aria-hidden
+                  sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: tagColor(tag), flex: 'none' }}
+                />
+                {tag}
+              </Box>
             ))}
             {record.recurrence && (
               <Chip
@@ -230,11 +297,16 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
                 icon={<RepeatIcon fontSize="small" />}
                 label={describeRecurrence(record.recurrence, record.remindAt)}
                 variant="outlined"
-                sx={{ '& .MuiChip-icon': { fontSize: 14 } }}
+                sx={{ height: 22, fontSize: 11, '& .MuiChip-icon': { fontSize: 14 } }}
               />
             )}
             {record.recurrenceParentId != null && (
-              <Chip size="small" label={`由第 ${record.recurrenceParentId} 期生成`} variant="outlined" />
+              <Chip
+                size="small"
+                label={`由第 ${record.recurrenceParentId} 期生成`}
+                variant="outlined"
+                sx={{ height: 22, fontSize: 11 }}
+              />
             )}
             {isSnoozePending(record, nowMs) && (
               <Chip
@@ -242,13 +314,30 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
                 color="info"
                 label={`已推迟至 ${formatClock(record.snoozedUntil ?? '')}`}
                 variant="outlined"
+                sx={{ height: 22, fontSize: 11 }}
               />
             )}
           </Box>
 
           {summary && (
-            <Box sx={{ bgcolor: 'rgba(91,84,217,0.06)', p: 1.5, borderRadius: 2 }}>
-              <Typography variant="subtitle2" color="primary.main" gutterBottom>
+            <Box
+              sx={{
+                bgcolor: 'var(--brand-soft)',
+                borderLeft: 'var(--stroke-accent) solid var(--brand)',
+                p: 1.5,
+                borderRadius: 'var(--r-ctl)',
+              }}
+            >
+              <Typography
+                component="div"
+                sx={{
+                  fontSize: 'var(--fs-caption)',
+                  fontWeight: 700,
+                  letterSpacing: 'var(--tracking-label)',
+                  color: 'primary.main',
+                  mb: 0.5,
+                }}
+              >
                 AI 摘要
               </Typography>
               <Typography variant="body2">{summary}</Typography>
@@ -363,19 +452,48 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
           )}
 
           {!editing && keyPoints.length > 0 && (
-            <Box sx={{ bgcolor: 'rgba(14,165,233,0.06)', p: 1.5, borderRadius: 2 }}>
-              <Typography variant="subtitle2" color="secondary.main" gutterBottom>
+            <Box
+              sx={{
+                bgcolor: 'var(--surface-2)',
+                borderLeft: 'var(--stroke-accent) solid var(--info)',
+                p: 1.5,
+                borderRadius: 'var(--r-ctl)',
+              }}
+            >
+              <Typography
+                component="div"
+                sx={{
+                  fontSize: 'var(--fs-caption)',
+                  fontWeight: 700,
+                  letterSpacing: 'var(--tracking-label)',
+                  color: 'info.main',
+                  mb: 0.75,
+                }}
+              >
                 提取重点
               </Typography>
               <Stack spacing={1}>
                 {keyPoints.map((k, i) => (
-                  <Box key={i}>
-                    <Typography variant="body2">• {k.point}</Typography>
-                    {k.detail && (
-                      <Typography variant="caption" color="text.secondary" sx={{ pl: 2 }}>
-                        {k.detail}
-                      </Typography>
-                    )}
+                  <Box key={i} sx={{ display: 'flex', gap: 1 }}>
+                    <Box
+                      aria-hidden
+                      sx={{
+                        width: 4,
+                        height: 4,
+                        flex: 'none',
+                        mt: '8px',
+                        borderRadius: '1px',
+                        bgcolor: 'var(--info)',
+                      }}
+                    />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2">{k.point}</Typography>
+                      {k.detail && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                          {k.detail}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 ))}
               </Stack>
@@ -388,7 +506,23 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
             </Typography>
           )}
 
-          {error && <Typography color="error" variant="body2">{error}</Typography>}
+          {error && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                px: 1.25,
+                py: 1,
+                bgcolor: 'var(--surface-2)',
+                borderLeft: 'var(--stroke-accent) solid var(--danger)',
+                borderRadius: 'var(--r-ctl)',
+              }}
+            >
+              <Typography color="error" variant="body2">
+                {error}
+              </Typography>
+            </Box>
+          )}
 
           <RelatedRecords
             sourceId={record.id}
@@ -398,7 +532,9 @@ export default function RecordDetail({ record, open, onClose, onChanged, onDelet
           />
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <DialogActions
+        sx={{ flexWrap: 'wrap', gap: 1, px: 3, py: 1.75, borderTop: 'var(--stroke) solid var(--line)' }}
+      >
         {record.type === 'todo' && record.todoStatus === 'pending' && !editing && (
           <Box sx={{ flex: 1, minWidth: 260, display: 'flex', justifyContent: 'flex-start' }}>
             <SnoozeActions record={record} onChanged={onChanged} />

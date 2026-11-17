@@ -2,60 +2,39 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Box,
   Button,
-  Checkbox,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   List,
   ListItem,
-  ListItemButton,
   ListItemText,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import AddIcon from '@mui/icons-material/Add'
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder'
-import BookmarkIcon from '@mui/icons-material/Bookmark'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { InfoRecord, TodoBucket, TodoOrganizeResult } from '@shared/types/domain'
 import { recordService } from '@/services/recordService'
 import { recurrenceService } from '@/services/recurrenceService'
 import { aiService } from '@/services/aiService'
 import { pushNotice } from '@/store/noticeStore'
-import { describeRecurrence } from '@/lib/recurrence'
-import { isSnoozePending } from '@/lib/reminder-schedule'
 import { BUCKET_LABELS, bucketCounts, isImportantTodo, splitByBucket } from '@/lib/todo-segments'
 import { friendlyError } from '@/lib/unwrap'
-import { categoryColor } from '@shared/constants/categories'
 import PageHeader from '@/components/PageHeader'
 import RecordDetail from '@/components/RecordDetail'
 import PageShell from '@/components/PageShell'
 import SkeletonList from '@/components/ui/SkeletonList'
+import EmptyState from '@/components/ui/EmptyState'
+import GeoMark from '@/components/ui/GeoMark'
+import TodoRow from '@/components/TodoRow'
 import { useUiSchemeStore } from '@/store/uiSchemeStore'
-
-function formatRemind(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
-/** ISO → 本地 HH:mm（「已推迟至」文案用）；非法返回空串。 */
-function formatClock(iso: string): string {
-  const ms = Date.parse(iso)
-  if (Number.isNaN(ms)) return ''
-  return new Date(ms).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-}
 
 const priorityLabel: Record<string, string> = { high: '高', medium: '中', low: '低' }
 const priorityColor: Record<string, 'error' | 'warning' | 'default'> = {
@@ -286,9 +265,10 @@ export default function TodoPage() {
 
   /** 加载未完成时提示「已加载 N / 共 M」，避免用户误以为段计数等于全量。 */
   const partial = pending.length < statusCounts.pending
+  const bucketEmpty = importantOnly ? '当前分段没有「重要」待办（高优先级或今天到期）' : BUCKET_EMPTY_TEXT[bucket]
 
   return (
-    <PageShell tone="list" baseWidth={760}>
+    <PageShell tone="list" baseWidth={900}>
       <PageHeader
         title="待办"
         subtitle="今天 / 即将 / 某天 三段视图，按优先级与截止时间整理"
@@ -299,11 +279,16 @@ export default function TodoPage() {
             <Chip
               size="small"
               clickable
-              color={importantOnly ? 'primary' : 'default'}
-              variant={importantOnly ? 'filled' : 'outlined'}
+              variant="outlined"
               label={`重要 ${importantCount}`}
               aria-pressed={importantOnly}
               onClick={() => setImportantOnly((prev) => !prev)}
+              sx={{
+                borderColor: importantOnly ? 'var(--brand)' : 'var(--line2)',
+                bgcolor: importantOnly ? 'var(--brand-soft)' : 'transparent',
+                color: importantOnly ? 'primary.main' : 'text.secondary',
+                '&:hover': { bgcolor: 'var(--brand-soft)' },
+              }}
             />
             <ToggleButtonGroup
               size="small"
@@ -315,8 +300,14 @@ export default function TodoPage() {
               aria-label="待办分段"
             >
               {BUCKET_ORDER.map((key) => (
-                <ToggleButton key={key} value={key} sx={{ px: 1.25, py: 0.25 }}>
-                  {BUCKET_LABELS[key]} {counts[key]}
+                <ToggleButton key={key} value={key} sx={{ px: 1.25, py: 0.25, gap: 0.75 }}>
+                  <Box component="span">{BUCKET_LABELS[key]}</Box>
+                  <Box
+                    component="span"
+                    sx={{ fontSize: 10.5, fontVariantNumeric: 'tabular-nums', opacity: 0.7, lineHeight: 1 }}
+                  >
+                    {counts[key]}
+                  </Box>
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
@@ -337,171 +328,125 @@ export default function TodoPage() {
       />
 
       {error && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <Typography color="error" sx={{ flex: 1 }}>{error}</Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            mb: 1.5,
+            px: 1.5,
+            py: 1,
+            border: '1px dashed var(--line2)',
+            borderRadius: 'var(--r-ctl)',
+          }}
+        >
+          <Typography color="error" sx={{ flex: 1, fontSize: 'var(--fs-meta)' }}>
+            {error}
+          </Typography>
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => load(1)}>
             重试
           </Button>
         </Box>
       )}
+
       {loading ? (
         fluid ? (
-          <SkeletonList rows={5} rowHeight={64} />
+          <SkeletonList rows={5} rowHeight={60} />
         ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 8 }}>
+            <Box className="geo-spinner" />
+            <Typography sx={{ fontSize: 'var(--fs-meta)', color: 'text.secondary' }}>正在载入待办</Typography>
           </Box>
         )
       ) : records.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Typography sx={{ mb: 1.5 }}>暂无待办</Typography>
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate('/')}>
-            快速记录
-          </Button>
-        </Box>
+        <EmptyState
+          title="暂无待办"
+          description="想到要做的事，先记下来，再在今天 / 即将 / 某天之间整理。"
+          action={
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate('/')}>
+              快速记录
+            </Button>
+          }
+        />
       ) : (
         <>
           {partial && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-              已加载 {pending.length} / 共 {statusCounts.pending} 条未完成待办，分段计数仅统计已加载部分
-            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 1.5,
+                px: 1.5,
+                py: 0.75,
+                border: 'var(--stroke) solid var(--line)',
+                borderRadius: 'var(--r-ctl)',
+                bgcolor: 'var(--surface)',
+              }}
+            >
+              <Box
+                aria-hidden
+                sx={{ width: 'var(--geo-dot)', height: 'var(--geo-dot)', borderRadius: '50%', bgcolor: 'var(--warning)' }}
+              />
+              <Typography sx={{ fontSize: 'var(--fs-caption)', color: 'text.secondary' }}>
+                已加载 {pending.length} / 共 {statusCounts.pending} 条未完成待办，分段计数仅统计已加载部分
+              </Typography>
+            </Box>
           )}
 
           {visible.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-              <Typography variant="body2">
-                {importantOnly ? '当前分段没有「重要」待办（高优先级或今天到期）' : BUCKET_EMPTY_TEXT[bucket]}
-              </Typography>
-            </Box>
+            <EmptyState
+              compact
+              title={bucketEmpty}
+              description={importantOnly ? '「重要」筛选只看高优先级与今天到期的待办。' : undefined}
+              action={
+                importantOnly ? (
+                  <Button size="small" variant="outlined" onClick={() => setImportantOnly(false)}>
+                    取消筛选
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : (
-            <List>
-              {visible.map((r) => (
-                <ListItem
+            <Stack spacing={1} data-todo-list="pending">
+              {visible.map((r, index) => (
+                <TodoRow
                   key={r.id}
-                  disablePadding
-                  secondaryAction={
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Tooltip title={r.someday === true ? '取消「某天」' : '标记为「某天」'}>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void toggleSomeday(r)
-                          }}
-                          aria-label={r.someday === true ? '取消某天' : '标记为某天'}
-                        >
-                          {r.someday === true ? <BookmarkIcon fontSize="small" /> : <BookmarkBorderIcon fontSize="small" />}
-                        </IconButton>
-                      </Tooltip>
-                      <Checkbox
-                        edge="end"
-                        checked={optimisticDone.has(r.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => handleToggleClick(r)}
-                        inputProps={{ 'aria-label': '标记完成' }}
-                      />
-                    </Stack>
-                  }
-                >
-                  <ListItemButton
-                    onClick={() => setDetail(r)}
-                    sx={{
-                      borderRadius: 2,
-                      opacity: optimisticDone.has(r.id) ? 0.45 : 1,
-                      transition: 'opacity var(--motion-exit) var(--motion-ease-exit)',
-                    }}
-                  >
-                    <ListItemText
-                      primaryTypographyProps={{
-                        sx: {
-                          textDecoration: optimisticDone.has(r.id) ? 'line-through' : 'none',
-                          transition: 'color var(--motion-exit) var(--motion-ease-exit)',
-                        },
-                      }}
-                      primary={r.title || '（无标题）'}
-                      secondary={
-                        <Box component="span" sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                          {r.category && (
-                            <Chip
-                              size="small"
-                              label={r.category}
-                              sx={{ fontSize: 11, bgcolor: `${categoryColor(r.category)}22`, color: categoryColor(r.category) }}
-                            />
-                          )}
-                          {r.priority && (
-                            <Chip
-                              size="small"
-                              label={priorityLabel[r.priority] ?? r.priority}
-                              color={priorityColor[r.priority] ?? 'default'}
-                              variant="outlined"
-                              sx={{ fontSize: 11 }}
-                            />
-                          )}
-                          {r.remindAt && <Typography variant="caption" color="text.secondary">提醒 {formatRemind(r.remindAt)}</Typography>}
-                          {/* 只在「推迟时间还没到」时显示：过了就不再残留一条失效的提示 */}
-                          {isSnoozePending(r, nowMs) && (
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              color="info"
-                              label={`已推迟至 ${formatClock(r.snoozedUntil ?? '')}`}
-                              sx={{ fontSize: 11, height: 20 }}
-                            />
-                          )}
-                          {r.recurrence && (
-                            <Chip
-                              size="small"
-                              label={describeRecurrence(r.recurrence, r.remindAt)}
-                              variant="outlined"
-                              sx={{ fontSize: 11, height: 20 }}
-                            />
-                          )}
-                          {r.recurrenceNextId != null && (
-                            <Chip
-                              size="small"
-                              label={`下一期 #${r.recurrenceNextId}`}
-                              variant="outlined"
-                              sx={{ fontSize: 11, height: 20 }}
-                            />
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
+                  record={r}
+                  nowMs={nowMs}
+                  index={index}
+                  optimistic={optimisticDone.has(r.id)}
+                  onOpen={() => setDetail(r)}
+                  onToggle={() => handleToggleClick(r)}
+                  onToggleSomeday={() => void toggleSomeday(r)}
+                />
               ))}
-            </List>
+            </Stack>
           )}
 
           {done.length > 0 && (
             <>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 3, mb: 1 }}>
-                已完成（{done.length}）
-              </Typography>
-              <List>
-                {done.map((r) => (
-                  <ListItem
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mt: 3.5, mb: 1.25 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                  已完成
+                </Typography>
+                <Typography component="span" sx={{ fontSize: 'var(--fs-caption)', color: 'text.secondary' }}>
+                  {done.length}
+                </Typography>
+                <Box aria-hidden sx={{ flex: 1, height: 'var(--stroke)', bgcolor: 'var(--line)' }} />
+              </Box>
+              <Stack spacing={1} data-todo-list="done">
+                {done.map((r, index) => (
+                  <TodoRow
                     key={r.id}
-                    disablePadding
-                    secondaryAction={
-                      <Checkbox
-                        edge="end"
-                        checked={true}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => toggle(r)}
-                        inputProps={{ 'aria-label': '恢复为未完成' }}
-                      />
-                    }
-                  >
-                    <ListItemButton onClick={() => setDetail(r)} sx={{ borderRadius: 2, opacity: 0.6 }}>
-                      <ListItemText
-                        primary={r.title || '（无标题）'}
-                        primaryTypographyProps={{ sx: { textDecoration: 'line-through' } }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
+                    record={r}
+                    nowMs={nowMs}
+                    index={index}
+                    onOpen={() => setDetail(r)}
+                    onToggle={() => void toggle(r)}
+                  />
                 ))}
-              </List>
+              </Stack>
             </>
           )}
         </>
@@ -516,17 +461,46 @@ export default function TodoPage() {
       )}
 
       {toast && (
-        <Box sx={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)' }}>
-          <Chip label={toast} color="primary" />
+        <Box
+          role="status"
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: (t) => t.zIndex.snackbar,
+            px: 2,
+            py: 1,
+            maxWidth: 'calc(100vw - 32px)',
+            borderRadius: 'var(--r-pill)',
+            bgcolor: 'var(--ink)',
+            color: 'var(--canvas)',
+            border: 'var(--stroke) solid var(--line2)',
+            boxShadow: 'var(--shadow-hover)',
+            fontSize: 'var(--fs-meta)',
+            fontWeight: 600,
+            pointerEvents: 'none',
+            animation: 'page-in var(--motion-enter) var(--motion-ease-enter)',
+          }}
+        >
+          {toast}
         </Box>
       )}
 
       <Dialog open={organizeOpen} onClose={() => setOrganizeOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>待办整理建议</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box sx={{ color: 'primary.main', display: 'flex' }}>
+              <GeoMark size={20} />
+            </Box>
+            待办整理建议
+          </Box>
+        </DialogTitle>
         <DialogContent dividers>
           {organizing ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 4 }}>
+              <Box className="geo-spinner" />
+              <Typography sx={{ fontSize: 'var(--fs-meta)', color: 'text.secondary' }}>正在整理…</Typography>
             </Box>
           ) : organizeResult ? (
             <Stack spacing={2}>
@@ -540,7 +514,10 @@ export default function TodoPage() {
                     合并建议
                   </Typography>
                   {organizeResult.mergeGroups.map((g, i) => (
-                    <Box key={i} sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main' }}>
+                    <Box
+                      key={i}
+                      sx={{ pl: 1.25, borderLeft: 'var(--stroke-accent) solid', borderColor: 'warning.main' }}
+                    >
                       <Typography variant="body2" fontWeight={600} color="warning.dark">
                         保留：{g.keep}
                       </Typography>

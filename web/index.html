@@ -2,8 +2,27 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>个人信息管家</title>
+    <!-- 深浅色首帧防闪烁：必须在样式与 React 之前把 data-theme 落到 <html> 上 -->
+    <script>
+      (function () {
+        try {
+          var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var mode = dark ? 'dark' : 'light';
+          document.documentElement.dataset.theme = mode;
+          document.documentElement.style.colorScheme = mode;
+        } catch (e) {}
+      })();
+    </script>
+    <!-- PWA（P1-9）：manifest 由 vite-plugin-pwa 注入；主题色与 iOS 主屏图标必须手写（iOS 不读 manifest） -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F7F9" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F0F13" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="信息管家" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   </head>
   <body>
     <div id="root"></div>

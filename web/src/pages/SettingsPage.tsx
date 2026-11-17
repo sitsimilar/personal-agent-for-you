@@ -33,6 +33,9 @@ import { pushNotice } from '@/store/noticeStore'
 import { useProfileStore } from '@/store/profileStore'
 import PageShell from '@/components/PageShell'
 import UiSchemeCard from '@/components/UiSchemeCard'
+import BackdropCard from '@/components/BackdropCard'
+import NotifyReachabilityCard from '@/components/NotifyReachabilityCard'
+import DeviceSessionsCard from '@/components/DeviceSessionsCard'
 import { useUiSchemeStore } from '@/store/uiSchemeStore'
 
 const DEFAULT_SETTINGS = {
@@ -440,6 +443,8 @@ export default function SettingsPage() {
 
       <UiSchemeCard />
 
+      <BackdropCard />
+
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="subtitle2" gutterBottom>
@@ -549,6 +554,10 @@ export default function SettingsPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <DeviceSessionsCard />
+
+      <NotifyReachabilityCard />
 
       <Card variant="outlined">
         <CardContent>

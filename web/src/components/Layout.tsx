@@ -68,7 +68,10 @@ import ReminderScheduler from './ReminderScheduler'
 import SchemeSwitcher from './SchemeSwitcher'
 import CommandPalette from './CommandPalette'
 import ShortcutHelpDialog from './ShortcutHelpDialog'
+import OfflineBanner from './OfflineBanner'
 import MobileBottomNav from './MobileBottomNav'
+import GeoMark from './ui/GeoMark'
+import AmbientBackdrop from './AmbientBackdrop'
 
 /* 侧栏骨架（P0-4）：宽度与断点常量全部来自 `@/lib/shell-layout`（唯一事实源）。 */
 
@@ -352,7 +355,20 @@ export default function Layout({ desktopMain }: LayoutProps) {
   const countOf = (key?: CountKey) => (key && counts ? counts[key] : undefined)
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }} onContextMenu={handleContextMenu}>
+    <Box
+      sx={{
+        display: 'flex',
+        height: '100vh',
+        /**
+         * 背景氛围的定位上下文：`isolation: isolate` 让装饰层的 `z-index: 0`
+         * 只压在本壳层内部，不会跑到 `body` 网格之下，也不会盖住顶栏与抽屉。
+         */
+        position: 'relative',
+        isolation: 'isolate',
+      }}
+      onContextMenu={handleContextMenu}
+    >
+      <AmbientBackdrop />
       {isDesktop && <TitleBar />}
       <AppBar
         position="fixed"
@@ -390,9 +406,14 @@ export default function Layout({ desktopMain }: LayoutProps) {
             全部让位给搜索框，退出登录 / 导出改走头像菜单（窄屏恒可点开，不会无路可走）。
           */}
           {!compactTopBar && (
-            <Typography variant="h6" fontWeight={700} noWrap sx={{ mr: 0.5 }}>
-              个人信息管家
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 0.5, flex: 'none' }}>
+              <Box aria-hidden sx={{ color: 'primary.main', display: 'flex' }}>
+                <GeoMark size={18} />
+              </Box>
+              <Typography variant="h6" fontWeight={700} noWrap>
+                个人信息管家
+              </Typography>
+            </Box>
           )}
           {!compactTopBar && (
             <Select
@@ -512,7 +533,12 @@ export default function Layout({ desktopMain }: LayoutProps) {
         sx={{
           // 只有常驻模式才占布局宽度；覆盖式（< 768px）必须让主内容拿到整屏
           ...(isPermanentDrawer ? { width: DRAWER_WIDTH, flexShrink: 0 } : {}),
-          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', pt: `${topOffset}px` },
+          '& .MuiDrawer-paper': {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            pt: `${topOffset}px`,
+            borderRight: 'var(--stroke) solid var(--line)',
+          },
         }}
       >
         <List component="nav" sx={{ px: 1, flex: 1, overflow: 'auto' }}>
@@ -533,26 +559,30 @@ export default function Layout({ desktopMain }: LayoutProps) {
                     selected={active}
                     onClick={() => go(item.path)}
                     aria-current={active ? 'page' : undefined}
-                    sx={{ borderRadius: 2, mb: 0.25 }}
+                    sx={{ borderRadius: 'var(--r-ctl)', mb: 0.25 }}
                   >
                     <ListItemIcon sx={{ minWidth: 34 }}>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 14 }} />
                     {count !== undefined && (
-                      <Typography
-                        variant="caption"
+                      <Box
+                        component="span"
                         sx={{
                           color: 'text.secondary',
-                          fontSize: 12,
+                          fontSize: 11,
+                          fontVariantNumeric: 'tabular-nums',
                           minWidth: 20,
-                          textAlign: 'center',
+                          height: 20,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           bgcolor: 'action.hover',
-                          borderRadius: 1.5,
-                          px: 0.75,
-                          py: 0.25,
+                          borderRadius: '6px',
+                          px: 0.5,
+                          lineHeight: 1,
                         }}
                       >
                         {count}
-                      </Typography>
+                      </Box>
                     )}
                   </ListItemButton>
                 )
@@ -561,7 +591,7 @@ export default function Layout({ desktopMain }: LayoutProps) {
           ))}
 
           <Divider sx={{ my: 1 }} />
-          <ListItemButton onClick={() => setCategoryOpen((v) => !v)} sx={{ borderRadius: 2 }}>
+          <ListItemButton onClick={() => setCategoryOpen((v) => !v)} sx={{ borderRadius: 'var(--r-ctl)' }}>
             <ListItemIcon sx={{ minWidth: 34 }}>
               <FolderIcon fontSize="small" />
             </ListItemIcon>
@@ -573,13 +603,13 @@ export default function Layout({ desktopMain }: LayoutProps) {
               {PRESET_CATEGORIES.map((c) => (
                 <ListItemButton
                   key={c.key}
-                  sx={{ pl: 5, borderRadius: 2 }}
+                  sx={{ pl: 5, borderRadius: 'var(--r-ctl)' }}
                   onClick={() => go(`/records?category=${encodeURIComponent(c.key)}`)}
                 >
                   <Box
                     sx={{
-                      width: 10,
-                      height: 10,
+                      width: 8,
+                      height: 8,
                       borderRadius: '50%',
                       bgcolor: c.color,
                       mr: 1.5,
@@ -619,8 +649,13 @@ export default function Layout({ desktopMain }: LayoutProps) {
           pb: bottomNavVisible ? bottomNavPadding() : 0,
           overflow: 'auto',
           height: '100vh',
+          /** 内容区压在背景氛围之上（装饰层 z-index 0）。 */
+          position: 'relative',
+          zIndex: 1,
         }}
       >
+        {/* 离线条幅挂在转场 key 之外：切页不会让条幅跟着闪一下 */}
+        <OfflineBanner />
         {/* 页面切换转场：以 pathname 为 key 触发淡入+上移（时长取 --motion-enter），尊重 prefers-reduced-motion */}
         <Box key={location.pathname} className="page-in" sx={{ minHeight: '100%' }}>
           <Outlet />

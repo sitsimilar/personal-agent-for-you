@@ -2,7 +2,6 @@ import { cloud } from '@/lib/cloud'
 import { collectStream, parseJsonLoose } from '@shared/utils/llm'
 import {
   ANALYZE_CODE_SYSTEM_PROMPT,
-  ANALYZE_SCREENSHOT_SYSTEM_PROMPT,
   ANALYZE_SELECTION_SYSTEM_PROMPT,
   CLASSIFY_SYSTEM_PROMPT,
   CROSS_LINK_SYSTEM_PROMPT,
@@ -30,23 +29,13 @@ import type {
 import type { SourceFilePayload } from '@shared/types/ipc'
 import { friendlyError } from '@/lib/unwrap'
 import { onServiceError } from '@/services/authExpired'
+import { clearModelCache, getModelId } from './llm-model'
 import { extractCompletedDimensions } from './mindtree-parse'
 import { buildCrossUserPrompt, flattenForestNodes, parseCrossLinkSuggestions, sampleNodes } from './mindforest-cross'
 import { recordService } from './recordService'
 
 /** 模型选择偏好：auto=取第一个可用（默认，质量优先）；fast=优先轻量快速模型（速度优先）；vision=支持图像的模型。 */
-export type ModelPreference = 'auto' | 'fast' | 'vision'
-
-/** 模型 id 缓存 TTL：过期自动重取，模型被禁用后可自愈。 */
-const MODEL_CACHE_TTL_MS = 15 * 60 * 1000
-
-interface ModelCacheEntry {
-  id: string
-  ts: number
-}
-
-const cachedModels = new Map<ModelPreference, ModelCacheEntry>()
-const pendingModels = new Map<ModelPreference, Promise<string>>()
+export type { ModelPreference } from './llm-model'
 
 /** LLM 输入/结果上限集中配置（避免魔法值散落）。 */
 const LIMITS = {
@@ -67,7 +56,6 @@ const LIMITS = {
   keyPointsMax: 10,
   todoMax: 50,
   selectionIssuesMax: 20,
-  screenshotVisionNeed: true,
 } as const
 
 /** 同 key 进行中复用：相同输入并发调用只发起一次 LLM 请求，防重复 token 消耗与结果竞态。 */
@@ -85,7 +73,6 @@ const inflightClassify = new Map<string, Promise<ClassifyResult>>()
 const inflightSummarize = new Map<string, Promise<string>>()
 const inflightSelection = new Map<string, Promise<SelectionAnalysisResult>>()
 const inflightCodeGen = new Map<string, Promise<string>>()
-const inflightScreenshot = new Map<string, Promise<string>>()
 
 /** 分析模型偏好（用户可在设置页切换）：fast=速度优先（默认）；auto=质量优先。 */
 export type AnalysisPreference = 'fast' | 'auto'
@@ -113,48 +100,8 @@ export function setAnalysisPreference(pref: AnalysisPreference): void {
   } catch {
     /* 忽略 */
   }
-  cachedModels.clear()
-  pendingModels.clear()
-}
-
-/** 模型速度/适用性打分（越小越快），用于 fast 偏好下的排序。 */
-function modelSpeedRank(m: { id: string; name?: string }): number {
-  const s = `${m.id} ${m.name ?? ''}`.toLowerCase()
-  if (/thinking|reason|image|vision/.test(s)) return 99 // 慢（推理）/不适用（图像）
-  if (/flash/.test(s)) return 0 // 最快
-  if (/turbo|turbos|air|lite|mini|fast|quick/.test(s)) return 1
-  if (/pro|max|ultra|opus|sonnet/.test(s)) return 3 // 强但慢
-  return 2
-}
-
-/** 动态取模型 id（不写死）；fast 偏好下跳过 thinking/图像模型、优先 flash/turbo；vision 取支持图像的模型。 */
-function getModelId(pref: ModelPreference = 'auto'): Promise<string> {
-  const hit = cachedModels.get(pref)
-  if (hit && Date.now() - hit.ts < MODEL_CACHE_TTL_MS) return Promise.resolve(hit.id)
-  if (hit) cachedModels.delete(pref) // 过期清缓存
-  const pending = pendingModels.get(pref)
-  if (pending) return pending
-  const p = (async () => {
-    const models = await cloud.llm.models.list()
-    const enabled = models.filter((m) => m.disabled !== true)
-    if (enabled.length === 0) throw new Error('当前没有可用的 AI 模型，请稍后再试')
-    let chosen = enabled[0]
-    if (pref === 'fast') {
-      const ranked = [...enabled].sort((a, b) => modelSpeedRank(a) - modelSpeedRank(b))
-      chosen = ranked[0]
-    } else if (pref === 'vision') {
-      const vision = enabled.find((m) => (m as { supportsImages?: boolean }).supportsImages === true)
-      if (!vision) throw new Error('当前没有支持图像识别的模型，请稍后再试')
-      chosen = vision
-    }
-    cachedModels.set(pref, { id: chosen.id, ts: Date.now() })
-    return chosen.id
-  })().catch((err) => {
-    pendingModels.delete(pref)
-    throw err
-  })
-  pendingModels.set(pref, p)
-  return p
+  // 偏好变了，之前缓存的模型 id 不再适用（缓存在 llm-model 里，统一清理）
+  clearModelCache()
 }
 
 /** 统一的 LLM 错误包装（转为中文友好提示）。 */
@@ -536,36 +483,6 @@ export const aiService = {
     } catch (err) {
       throw wrapLlmError(err)
     }
-  },
-
-  /** 截图识别：上传截图 + 上下文 → 分析内容并推测需求（vision 模型 + 结果去重）。 */
-  async analyzeScreenshot(imageDataUrl: string, context: string): Promise<string> {
-    return dedupeInflight(inflightScreenshot, imageDataUrl, async () => {
-      try {
-        const model = await getModelId('vision')
-        const userContent: Array<Record<string, unknown>> = []
-        if (context.trim()) {
-          userContent.push({ type: 'text', text: `上下文：${context.trim()}` })
-        }
-        userContent.push({ type: 'text', text: '请分析这张截图' })
-        userContent.push({ type: 'image_url', image_url: { url: imageDataUrl } })
-        const messages = [
-          { role: 'system', content: ANALYZE_SCREENSHOT_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ]
-        // SDK 类型仅声明 content: string，这里用局部窄类型表达多模态消息，避免 any
-        type MultimodalChatInput = {
-          model: string
-          messages: Array<{ role: string; content: string | Array<Record<string, unknown>> }>
-          stream: boolean
-        }
-        const create = cloud.llm.chat.completions.create as unknown as (args: MultimodalChatInput) => AsyncIterable<unknown>
-        const stream = create({ model, messages, stream: true })
-        return await collectStream(stream)
-      } catch (err) {
-        throw wrapLlmError(err)
-      }
-    })
   },
 
   /** VS 变更文件分析：返回 summary + CodeIssue[]（供悬浮窗回传 analysisDone）。 */

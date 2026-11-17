@@ -33,13 +33,14 @@ export default function SkeletonList({ rows = 5, rowHeight = 56, avatar = false 
             height: rowHeight,
             px: 1.5,
             mb: 1,
-            border: '1px solid var(--line)',
+            border: 'var(--stroke) solid var(--line)',
             borderRadius: 'var(--r-card)',
-            bgcolor: 'background.paper',
+            bgcolor: 'var(--surface)',
+            boxShadow: 'var(--shadow-card)',
           }}
         >
           {avatar && (
-            <Box className="skeleton" sx={{ width: 28, height: 28, borderRadius: '8px', flex: 'none' }} />
+            <Box className="skeleton" sx={{ width: 28, height: 28, borderRadius: 'var(--r-ctl)', flex: 'none' }} />
           )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box

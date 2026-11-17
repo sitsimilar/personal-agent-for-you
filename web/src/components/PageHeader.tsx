@@ -3,6 +3,7 @@ import AddIcon from '@mui/icons-material/Add'
 import type { ReactNode } from 'react'
 import { useUiSchemeStore } from '@/store/uiSchemeStore'
 import { useUiShellStore } from '@/store/uiShellStore'
+import GeoMark from './ui/GeoMark'
 
 interface PageHeaderProps {
   title: string
@@ -22,10 +23,10 @@ interface PageHeaderProps {
  * 统一内容区页头：标题 + 副标题 + 右侧操作。
  *
  * ## 两套形态（由界面方案决定，组件内部只有一个分支）
- * - **静默化 / 流畅优先**：维持改造前形态（h6 标题 + 13px 副标题 + 右侧操作），
- *   位置、字号、间距都不动 —— 这是「既有使用习惯不变」的底线。
- * - **分区骨架**：升级为「页眉带」——标题放大到 20px、描述紧随其下，
- *   右侧挂主操作「快速记录」，底部一条淡分隔线把页眉与内容分开。
+ * - **静默化 / 流畅优先**：维持改造前的排版节奏（h6 + 13px 副标题 + 右侧操作），
+ *   只把左侧补上「线构」几何标记 —— 标题的落点与操作区位置不变。
+ * - **分区骨架**：升级为「页眉带」——标题 20px、描述紧随其下，
+ *   右侧挂主操作「快速记录」，底部一条发丝线把页眉与内容分开。
  *
  * 为什么主操作要下移到页眉：顶栏距内容区隔着一个搜索框和头像，视线每次都要回头；
  * 放进页眉后「看标题 → 动手」是同一个视觉落点。
@@ -37,8 +38,7 @@ export default function PageHeader({ title, subtitle, action, showCreate = true 
   if (!zoned) {
     return (
       // flexWrap + 操作区 maxWidth：375 档「标题 + 一整排分段/动作按钮」一行放不下时，
-      // 让操作区整块换到下一行并按可用宽度折行，而不是顶出 main 的横向滚动
-      // （§八 第 2 项要求 main 内部溢出 =0，改前待办页 +7px）。
+      // 让操作区整块换到下一行并按可用宽度折行，而不是顶出 main 的横向滚动。
       <Box
         sx={{
           display: 'flex',
@@ -46,19 +46,24 @@ export default function PageHeader({ title, subtitle, action, showCreate = true 
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 2,
-          rowGap: 1,
-          mb: 2,
+          rowGap: 1.25,
+          mb: 2.25,
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" fontWeight={700}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-              {subtitle}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
+          <Box sx={{ mt: '3px', color: 'primary.main', flex: 'none' }}>
+            <GeoMark size={18} />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ letterSpacing: 'var(--tracking-tight)' }}>
+              {title}
             </Typography>
-          )}
+            {subtitle && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
         </Box>
         {action && (
           <Box sx={{ flex: 'none', minWidth: 0, maxWidth: '100%', display: 'flex', alignItems: 'center' }}>
@@ -79,19 +84,26 @@ export default function PageHeader({ title, subtitle, action, showCreate = true 
         gap: 2,
         mb: 2.5,
         pb: 1.75,
-        borderBottom: '1px solid var(--header-band-divider)',
+        borderBottom: 'var(--stroke) solid var(--header-band-divider)',
       }}
     >
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3 }}>{title}</Typography>
-        {subtitle && (
-          <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.5 }}>{subtitle}</Typography>
-        )}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0 }}>
+        <Box sx={{ mt: '2px', color: 'primary.main', flex: 'none' }}>
+          <GeoMark size={22} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, letterSpacing: 'var(--tracking-tight)' }}>
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography sx={{ fontSize: 'var(--fs-meta)', color: 'text.secondary', mt: 0.5 }}>{subtitle}</Typography>
+          )}
+        </Box>
       </Box>
       <Box sx={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 1 }}>
         {action}
         {showCreate && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} className="press">
             快速记录
           </Button>
         )}

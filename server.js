@@ -52,6 +52,7 @@ const MIME = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.map': 'application/json',
 }
 
@@ -106,8 +107,14 @@ http
     const ext = path.extname(file).toLowerCase()
     const type = MIME[ext] || 'application/octet-stream'
     const size = fs.statSync(file).size
-    // html 每次回源校验，其余静态资源（含 vite 带 hash 的产物）缓存一天
-    const cache = ext === '.html' ? 'no-cache' : 'public, max-age=86400'
+    // html 每次回源校验，其余静态资源（含 vite 带 hash 的产物）缓存一天。
+    // PWA（P1-9）：sw.js 与 manifest 必须 no-cache——缓存住 sw.js 会让 autoUpdate 永远拿不到新壳，
+    // 缓存住 manifest 会让改过 theme_color / 图标的旧清单长期不生效。
+    const isSw = path.basename(file) === 'sw.js'
+    const cache =
+      ext === '.html' || isSw || ext === '.webmanifest'
+        ? 'no-cache'
+        : 'public, max-age=86400'
 
     // Range 支持：宣传片的 mp4 走这里。缺了它 iOS Safari 会直接拒绝播放，
     // 桌面 Chrome 能播但进度条拖不动（每次都从 0 重下）。

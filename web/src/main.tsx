@@ -1,9 +1,9 @@
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import App from './App'
-import theme from './theme'
+import { buildTheme, type ThemeMode } from './theme'
 import './index.css'
 import { cloud } from './lib/cloud'
 import { authService } from './services/authService'
@@ -12,6 +12,16 @@ import { useAuthStore } from './store/authStore'
 import { setUnwrapAuthHook } from './lib/unwrap'
 import { onServiceError } from './services/authExpired'
 import { useUiSchemeStore } from './store/uiSchemeStore'
+import { registerServiceWorker, setupInstallPrompt } from './lib/pwa'
+import { startSessionGuard } from './services/sessionGuard'
+
+/**
+ * PWA（P1-9）：安装事件要在启动最初就挂上（`beforeinstallprompt` 只派发一次），
+ * Service Worker 注册只发生在生产构建、且非桌面伴侣环境（内部自判）。
+ * 两者都失败静默——离线壳与可安装都是增强项，不能拖垮启动。
+ */
+setupInstallPrompt()
+registerServiceWorker()
 
 /**
  * 界面方案必须在**首帧渲染前**落地：
@@ -33,9 +43,20 @@ async function bootstrap(): Promise<void> {
   // 钩子无网络依赖，尽早注册，避免启动卡顿时登录态回调/401 拦截失效
   authService.onAuthStateChange((_event, session) => {
     useAuthStore.getState().setSession(session)
+    // 登出/会话过期：清掉离线缓存，否则换账号后能看到上一个人的记录标题
+    if (!session) {
+      void import('./lib/offline-db')
+        .then((m) => m.clearOfflineCache())
+        .catch(() => {})
+    }
   })
   // 跨窗口登录态同步：主窗口登录后，悬浮窗据此更新本地会话（含登出）。
   initCrossWindowAuthSync()
+  /**
+   * 多端会话守护：设备注册 + 前台心跳 + 「被其它设备退出」感知。
+   * 必须早于 `getSession()`，否则冷启动恢复出的会话要等到下一次定时器才注册设备。
+   */
+  startSessionGuard()
   setUnwrapAuthHook(onServiceError)
 
   const work = (async () => {
@@ -92,11 +113,71 @@ async function bootstrap(): Promise<void> {
 
 bootstrap()
 
+/** 系统深浅色媒体查询（不支持 `matchMedia` 的环境回落浅色）。 */
+const DARK_QUERY = '(prefers-color-scheme: dark)'
+
+function readThemeMode(): ThemeMode {
+  try {
+    return window.matchMedia?.(DARK_QUERY).matches ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
+
+/** 首帧前落地主题属性：index.html 的内联脚本已挡一次闪烁，这里是测试/异常环境兜底。 */
+function applyThemeAttribute(mode: ThemeMode) {
+  document.documentElement.dataset.theme = mode
+  document.documentElement.style.colorScheme = mode
+  /**
+   * 背景颜色由 `--bd-ink-rgb` 派生：深浅色切换后必须重新合成 alpha，
+   * 否则浅色下会残留深色的浅色星点（Canvas 读到的还是旧结果）。
+   */
+  useUiSchemeStore.getState().refreshBackdropPalette()
+}
+
+applyThemeAttribute(readThemeMode())
+
+/**
+ * 主题宿主：跟随系统深浅色，**不提供手动开关**。
+ *
+ * 深浅色共用 `theme.ts` 的同一份语义令牌：切模式时只重算 MUI 主题，
+ * CSS 变量由 `data-theme` 同步覆盖，所以不会出现"一半新色、一半旧色"的中间帧。
+ * 监听 `change` 而不是轮询：系统主题切换时立即生效。
+ */
+function ThemeHost({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>(readThemeMode)
+
+  useEffect(() => {
+    let mq: MediaQueryList | null = null
+    try {
+      mq = window.matchMedia(DARK_QUERY)
+    } catch {
+      return
+    }
+    const onChange = (e: MediaQueryListEvent) => setMode(e.matches ? 'dark' : 'light')
+    setMode(mq.matches ? 'dark' : 'light')
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    applyThemeAttribute(mode)
+  }, [mode])
+
+  const muiTheme = useMemo(() => buildTheme(mode), [mode])
+
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeHost>
       <App />
-    </ThemeProvider>
+    </ThemeHost>
   </React.StrictMode>,
 )

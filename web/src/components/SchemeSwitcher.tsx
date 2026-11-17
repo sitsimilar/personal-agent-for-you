@@ -21,6 +21,13 @@ import {
   summarizeUiSchemeChange,
 } from '@/lib/ui-scheme'
 
+import {
+  BACKDROP_ORDER,
+  getBackdropMeta,
+  getBackdropName,
+  type BackdropTheme,
+} from '@/lib/backdrop'
+
 /**
  * 顶栏「界面方案」快捷入口（方案切换的独立入口之一，另一个在设置页）。
  *
@@ -37,7 +44,9 @@ import {
 export default function SchemeSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const scheme = useUiSchemeStore((s) => s.scheme)
+  const backdrop = useUiSchemeStore((s) => s.backdrop)
   const setScheme = useUiSchemeStore((s) => s.setScheme)
+  const setBackdrop = useUiSchemeStore((s) => s.setBackdrop)
   const navigate = useNavigate()
 
   const handleOpen = (e: MouseEvent<HTMLElement>) => setAnchor(e.currentTarget)
@@ -52,6 +61,18 @@ export default function SchemeSwitcher() {
       label: '撤销',
       onAction: () => {
         useUiSchemeStore.getState().setScheme(previous)
+      },
+    })
+  }
+
+  /** 背景氛围在这里也放一份快捷切换：用户往往是在当前页对比时才有判断。 */
+  const pickBackdrop = (next: BackdropTheme) => {
+    if (next === backdrop) return
+    const previous = setBackdrop(next)
+    pushNotice(`背景已切换到「${getBackdropName(next)}」`, 'info', {
+      label: '撤销',
+      onAction: () => {
+        useUiSchemeStore.getState().setBackdrop(previous)
       },
     })
   }
@@ -123,6 +144,27 @@ export default function SchemeSwitcher() {
             </ListItemButton>
           )
         })}
+
+        <Divider />
+        <Box sx={{ px: 2, py: 1.25 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>背景氛围</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25, mb: 0.75 }}>
+            只改画布底纹，不写账号；选「关闭」即刻停止渲染
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {BACKDROP_ORDER.map((id) => (
+              <Chip
+                key={id}
+                size="small"
+                label={getBackdropMeta(id).name}
+                color={id === backdrop ? 'primary' : 'default'}
+                variant={id === backdrop ? 'filled' : 'outlined'}
+                onClick={() => pickBackdrop(id)}
+                sx={{ height: 24, fontSize: 11.5 }}
+              />
+            ))}
+          </Box>
+        </Box>
 
         <Divider />
         <Box sx={{ px: 2, py: 1 }}>

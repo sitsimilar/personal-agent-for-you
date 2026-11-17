@@ -28,6 +28,7 @@ import { storageService } from '@/services/storageService'
 import { enrichLinkMeta, isHttpUrl } from '@/services/linkPreviewService'
 import { friendlyError } from '@/lib/unwrap'
 import RecurrenceField from './RecurrenceField'
+import GeoMark from './ui/GeoMark'
 
 interface RecordCreateDialogProps {
   open: boolean
@@ -125,9 +126,33 @@ export default function RecordCreateDialog({ open, onClose, onCreated, defaultTy
 
   return (
     <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
-      <DialogTitle>快速记录</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box sx={{ color: 'primary.main', display: 'flex' }}>
+            <GeoMark size={20} />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              component="div"
+              sx={{
+                fontSize: 'var(--fs-caption)',
+                fontWeight: 700,
+                letterSpacing: 'var(--tracking-label)',
+                color: 'text.secondary',
+                lineHeight: 1.4,
+              }}
+            >
+              NEW RECORD
+            </Typography>
+            <Typography component="div" sx={{ fontSize: 18, fontWeight: 700, lineHeight: 1.35 }}>
+              快速记录
+            </Typography>
+          </Box>
+        </Box>
+      </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {/* 类型选择：三块等宽几何瓦片（方形图标 + 标签），选中只换描边与浅底，不铺大面积色块 */}
           <ToggleButtonGroup
             exclusive
             fullWidth
@@ -136,16 +161,41 @@ export default function RecordCreateDialog({ open, onClose, onCreated, defaultTy
               if (v) setType(v as RecordType)
               if (v !== 'todo') setRecurrence(null)
             }}
+            sx={{ gap: 1 }}
           >
-            <ToggleButton value="idea">
-              <LightbulbIcon fontSize="small" sx={{ mr: 0.5 }} />想法
-            </ToggleButton>
-            <ToggleButton value="material">
-              <FolderIcon fontSize="small" sx={{ mr: 0.5 }} />资料
-            </ToggleButton>
-            <ToggleButton value="todo">
-              <CheckCircleIcon fontSize="small" sx={{ mr: 0.5 }} />待办
-            </ToggleButton>
+            {(
+              [
+                { value: 'idea', label: '想法', icon: <LightbulbIcon /> },
+                { value: 'material', label: '资料', icon: <FolderIcon /> },
+                { value: 'todo', label: '待办', icon: <CheckCircleIcon /> },
+              ] as const
+            ).map((item) => (
+              <ToggleButton
+                key={item.value}
+                value={item.value}
+                sx={{ py: 1.25, flexDirection: 'column', gap: 0.75, flex: 1, minWidth: 0 }}
+              >
+                <Box
+                  aria-hidden
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 'var(--r-ctl)',
+                    border: 'var(--stroke) solid currentColor',
+                    opacity: 0.9,
+                    '& svg': { fontSize: 18 },
+                  }}
+                >
+                  {item.icon}
+                </Box>
+                <Box component="span" sx={{ fontSize: 'var(--fs-meta)', fontWeight: 600 }}>
+                  {item.label}
+                </Box>
+              </ToggleButton>
+            ))}
           </ToggleButtonGroup>
 
           <TextField
@@ -226,12 +276,28 @@ export default function RecordCreateDialog({ open, onClose, onCreated, defaultTy
             </>
           )}
 
-          {error && <Typography color="error" variant="body2">{error}</Typography>}
+          {error && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                px: 1.25,
+                py: 1,
+                bgcolor: 'var(--surface-2)',
+                borderLeft: 'var(--stroke-accent) solid var(--danger)',
+                borderRadius: 'var(--r-ctl)',
+              }}
+            >
+              <Typography color="error" variant="body2">
+                {error}
+              </Typography>
+            </Box>
+          )}
         </Stack>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ px: 3, py: 1.75, borderTop: 'var(--stroke) solid var(--line)' }}>
         <Button onClick={close}>取消</Button>
-        <Button variant="contained" onClick={submit} disabled={submitting}>
+        <Button variant="contained" onClick={submit} disabled={submitting} sx={{ minWidth: 88 }}>
           {submitting ? '保存中…' : '保存'}
         </Button>
       </DialogActions>

@@ -14,6 +14,11 @@
  *    这时整个偏好退化为设备级——功能不受影响，这是刻意选的降级方向（偏好项不值得阻塞用户）。
  *
  * 不变量：**任何情况下 `state.scheme` 都是 `normalizeUiScheme` 的结果**，UI 不需要再判空。
+ *
+ * ## 背景氛围（v2.14 追加）
+ * 背景氛围与界面方案正交，但刻意放在**同一个 store**里：
+ * 两者都是「呈现偏好」，共用同一条首帧落地链路（`hydrateLocal` 在 `main.tsx` 渲染前调用）。
+ * 区别是背景**只写 localStorage**，不写云端、不碰 `settings` 表 —— 不给数据库加列。
  */
 
 import { create } from 'zustand'
@@ -28,6 +33,20 @@ import {
   type UiSchemeChangeSummary,
   type UiSchemeFeatures,
 } from '@/lib/ui-scheme'
+import {
+  BACKDROP_STORAGE_KEY,
+  BACKDROP_STORAGE_VERSION,
+  BACKDROP_DEFAULTS,
+  DEFAULT_BACKDROP,
+  clampBackdropParam,
+  normalizeBackdrop,
+  normalizeBackdropPreference,
+  type BackdropParamKey,
+  type BackdropParams,
+  type BackdropPreference,
+  type BackdropTheme,
+} from '@/lib/backdrop'
+import { applyBackdropStyle } from '@/lib/backdrop-style'
 import { profileService } from '@/services/profileService'
 import type { SettingsRow } from '@/lib/database.types'
 
@@ -49,6 +68,10 @@ interface UiSchemeState {
   previous: UiScheme | null
   /** settings 行 id（云写入用，由 `hydrateFromCloud` 带出）。 */
   settingsId: number | null
+  /** 当前背景氛围（恒为合法值；只存本机）。 */
+  backdrop: BackdropTheme
+  /** 每套主题各自的参数（用户改过谁就记住谁，切主题不互相污染）。 */
+  backdropParams: Record<BackdropTheme, BackdropParams>
 }
 
 interface UiSchemeActions {
@@ -76,6 +99,18 @@ interface UiSchemeActions {
   resetToDefault: () => { previous: UiScheme; summary: UiSchemeChangeSummary }
   /** 当前方案的能力位（选择器函数，避免组件各自 import 特性表）。 */
   features: () => UiSchemeFeatures
+  /**
+   * 切换背景氛围：立即写 DOM + localStorage，不写云端。
+   *
+   * @returns 被替换掉的旧值（供撤销提示用）
+   */
+  setBackdrop: (next: unknown) => BackdropTheme
+  /** 改一个背景参数（按当前主题记录；越界值会被夹到安全区间）。 */
+  setBackdropParam: (key: BackdropParamKey, value: number) => void
+  /** 把当前主题的参数恢复成推荐值。 */
+  resetBackdropParams: () => void
+  /** 深浅色切换后重算背景颜色（底色 token 变了，需要重新合成 alpha）。 */
+  refreshBackdropPalette: () => void
 }
 
 export type UiSchemeStore = UiSchemeState & UiSchemeActions
@@ -84,6 +119,44 @@ export type UiSchemeStore = UiSchemeState & UiSchemeActions
 function applyToDocument(scheme: UiScheme): void {
   if (typeof document === 'undefined') return
   document.documentElement.dataset.scheme = scheme
+}
+
+/**
+ * 把背景主题与参数一起落地：`data-backdrop` + 一组 CSS 变量。
+ *
+ * 为什么不复用 `applyBackdropToDocument`：参数要编译成线宽/颜色/时长，
+ * 逻辑在 `lib/backdrop-style.ts`，这里只负责调用，保证「状态 → 视觉」单一路径。
+ */
+function applyBackdrop(theme: BackdropTheme, params: BackdropParams): void {
+  applyBackdropStyle(theme, params)
+}
+
+/** 读本地背景偏好（任何异常都当作“没存过”，参数补默认值）。 */
+function readLocalBackdrop(): BackdropPreference {
+  try {
+    const raw = window.localStorage.getItem(BACKDROP_STORAGE_KEY)
+    if (!raw) return normalizeBackdropPreference(DEFAULT_BACKDROP, null)
+    if (raw.startsWith('{')) {
+      // v2 起带 params；v1 只有 backdrop —— 缺的参数逐项补推荐值
+      const parsed = JSON.parse(raw) as { v?: number; backdrop?: unknown; params?: unknown }
+      return normalizeBackdropPreference(parsed?.backdrop, parsed?.params)
+    }
+    return normalizeBackdropPreference(raw, null)
+  } catch {
+    return normalizeBackdropPreference(DEFAULT_BACKDROP, null)
+  }
+}
+
+/** 写本地背景偏好（失败静默：隐私模式下 localStorage 会抛）。 */
+function writeLocalBackdrop(pref: BackdropPreference): void {
+  try {
+    window.localStorage.setItem(
+      BACKDROP_STORAGE_KEY,
+      JSON.stringify({ v: BACKDROP_STORAGE_VERSION, backdrop: pref.theme, params: pref.params }),
+    )
+  } catch {
+    /* 忽略 */
+  }
 }
 
 /** 读本地存储（任何异常都当作“没存过”）。 */
@@ -133,13 +206,19 @@ export const useUiSchemeStore = create<UiSchemeStore>((set, get) => ({
   hydrated: false,
   previous: null,
   settingsId: null,
+  backdrop: DEFAULT_BACKDROP,
+  backdropParams: { ...BACKDROP_DEFAULTS },
 
   hydrateLocal: () => {
     if (get().hydrated) return
     const scheme = readLocal()
+    const pref = readLocalBackdrop()
     applyToDocument(scheme)
+    applyBackdrop(pref.theme, pref.params[pref.theme])
     set({
       scheme,
+      backdrop: pref.theme,
+      backdropParams: pref.params,
       source: scheme === DEFAULT_UI_SCHEME ? 'default' : 'local',
       hydrated: true,
       previous: null,
@@ -201,6 +280,44 @@ export const useUiSchemeStore = create<UiSchemeStore>((set, get) => ({
   resetToDefault: () => get().setScheme(DEFAULT_UI_SCHEME),
 
   features: () => resolveUiSchemeFeatures(get().scheme),
+
+  setBackdrop: (next) => {
+    const previous = get().backdrop
+    const backdrop = normalizeBackdrop(next)
+    const params = get().backdropParams
+    applyBackdrop(backdrop, params[backdrop])
+    writeLocalBackdrop({ theme: backdrop, params })
+    set({ backdrop })
+    return previous
+  },
+
+  setBackdropParam: (key, value) => {
+    const theme = get().backdrop
+    const params = get().backdropParams
+    const current = params[theme]
+    const nextValue = clampBackdropParam(key, value, current[key])
+    if (nextValue === current[key]) return
+
+    const nextForTheme: BackdropParams = { ...current, [key]: nextValue }
+    const nextParams = { ...params, [theme]: nextForTheme }
+    applyBackdrop(theme, nextForTheme)
+    writeLocalBackdrop({ theme, params: nextParams })
+    set({ backdropParams: nextParams })
+  },
+
+  resetBackdropParams: () => {
+    const theme = get().backdrop
+    const nextForTheme: BackdropParams = { ...BACKDROP_DEFAULTS[theme] }
+    const nextParams = { ...get().backdropParams, [theme]: nextForTheme }
+    applyBackdrop(theme, nextForTheme)
+    writeLocalBackdrop({ theme, params: nextParams })
+    set({ backdropParams: nextParams })
+  },
+
+  refreshBackdropPalette: () => {
+    const { backdrop, backdropParams } = get()
+    applyBackdrop(backdrop, backdropParams[backdrop])
+  },
 }))
 
 /** 组件外取能力位（service / 事件回调里用）。 */

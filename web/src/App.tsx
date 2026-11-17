@@ -20,6 +20,7 @@ import LearningGoalPage from './pages/LearningGoalPage'
 import { warmup } from './services/aiService'
 import { checkForUpdate, type CheckResult } from './services/updateService'
 import { UPDATE_CHECK_INTERVAL_MS } from '@shared/config/version'
+import { isNativeShell } from './lib/platform'
 
 /** 是否处于桌面悬浮窗 companion 模式。 */
 function isCompanionMode(): boolean {
@@ -65,6 +66,9 @@ export default function App() {
 
   // 自动检查更新：启动时一次 + 运行期间定期检查（仅在新版本时弹窗，失败静默）
   useEffect(() => {
+    // 原生壳（Android APK）里没有 `/version.json`：它的资源在 APK assets 内，
+    // 升级走安装包。继续查只会每 30 分钟打一次 404。
+    if (isNativeShell()) return
     let cancelled = false
     const run = async () => {
       const r = await checkForUpdate()

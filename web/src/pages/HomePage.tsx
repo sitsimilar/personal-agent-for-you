@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Grid,
-  Pagination,
-  Stack,
-  Typography,
-} from '@mui/material'
+import type { CSSProperties } from 'react'
+import { Box, Button, Grid, Pagination, Stack, Typography } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import AddIcon from '@mui/icons-material/Add'
 import type { InfoRecord } from '@shared/types/domain'
@@ -22,6 +13,8 @@ import RecordCreateDialog from '@/components/RecordCreateDialog'
 import PageHeader from '@/components/PageHeader'
 import PageShell from '@/components/PageShell'
 import SkeletonList from '@/components/ui/SkeletonList'
+import MetricTile from '@/components/ui/MetricTile'
+import EmptyState from '@/components/ui/EmptyState'
 
 interface HomeStats {
   weekNew: number
@@ -29,24 +22,9 @@ interface HomeStats {
   streak: number
 }
 
-function StatCard({ label, value, unit }: { label: string; value: number; unit: string }) {
-  return (
-    <Grid item xs={6} sm={4}>
-      <Card variant="outlined" sx={{ p: 1.5 }}>
-        <Typography variant="caption" color="text.secondary">
-          {label}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
-          <Typography variant="h5" fontWeight={700}>
-            {value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {unit}
-          </Typography>
-        </Box>
-      </Card>
-    </Grid>
-  )
+/** 列表错峰延迟：第 n 项 26ms，尾部封顶到第 8 项（避免长列表末尾等待过久）。 */
+function staggerStyle(index: number): CSSProperties {
+  return { '--i': Math.min(index, 8) } as CSSProperties
 }
 
 /** 全部信息页（工作台）。 */
@@ -101,45 +79,20 @@ export default function HomePage() {
    */
   const renderAside = () => (
     <Stack spacing={2}>
-      <Card variant="outlined">
-        <CardContent sx={{ pb: '12px !important' }}>
-          <Typography variant="caption" color="text.secondary">
-            本周新增
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
-            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.weekNew ?? 0}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              条
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-      <Card variant="outlined">
-        <CardContent sx={{ pb: '12px !important' }}>
-          <Typography variant="caption" color="text.secondary">
-            待办未完成
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
-            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.todoPending ?? 0}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              条
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-      <Card variant="outlined">
-        <CardContent sx={{ pb: '12px !important' }}>
-          <Typography variant="caption" color="text.secondary">
-            连续记录
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.5 }}>
-            <Typography sx={{ fontSize: 24, fontWeight: 700 }}>{stats?.streak ?? 0}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              天
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
+      <Typography
+        component="div"
+        sx={{
+          fontSize: 'var(--fs-caption)',
+          fontWeight: 700,
+          letterSpacing: 'var(--tracking-label)',
+          color: 'text.secondary',
+        }}
+      >
+        概览
+      </Typography>
+      <MetricTile label="本周新增" value={stats?.weekNew ?? 0} unit="条" glyph="square" />
+      <MetricTile label="待办未完成" value={stats?.todoPending ?? 0} unit="条" glyph="circle" />
+      <MetricTile label="连续记录" value={stats?.streak ?? 0} unit="天" glyph="lines" />
     </Stack>
   )
 
@@ -150,44 +103,82 @@ export default function HomePage() {
       {/* 分区方案下统计卡进右栏（bento），主区专注记录列表；其余方案维持顶部三卡 */}
       {!zoned && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <StatCard label="本周新增" value={stats?.weekNew ?? 0} unit="条" />
-          <StatCard label="待办未完成" value={stats?.todoPending ?? 0} unit="条" />
-          <StatCard label="连续记录" value={stats?.streak ?? 0} unit="天" />
+          <Grid item xs={6} sm={4}>
+            <MetricTile label="本周新增" value={stats?.weekNew ?? 0} unit="条" glyph="square" />
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <MetricTile label="待办未完成" value={stats?.todoPending ?? 0} unit="条" glyph="circle" />
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <MetricTile label="连续记录" value={stats?.streak ?? 0} unit="天" glyph="lines" />
+          </Grid>
         </Grid>
       )}
 
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-        最近记录
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          最近记录
+        </Typography>
+        <Typography component="span" sx={{ fontSize: 'var(--fs-caption)', color: 'text.secondary' }}>
+          {records.length} / {total}
+        </Typography>
+        <Box aria-hidden sx={{ flex: 1, height: 'var(--stroke)', bgcolor: 'var(--line)' }} />
+      </Box>
 
       {loading ? (
         fluid ? (
           <SkeletonList rows={4} rowHeight={120} avatar />
         ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 8 }}>
+            <Box className="geo-spinner" />
+            <Typography sx={{ fontSize: 'var(--fs-meta)', color: 'text.secondary' }}>正在载入记录</Typography>
           </Box>
         )
       ) : error ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 8 }}>
-          <Typography color="error">{error}</Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1.5,
+            py: 7,
+            px: 2,
+            border: '1px dashed var(--line2)',
+            borderRadius: 'var(--r-card)',
+          }}
+        >
+          <Typography color="error" sx={{ fontSize: 'var(--fs-body)' }}>
+            {error}
+          </Typography>
           <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={load}>
             重试加载
           </Button>
         </Box>
       ) : records.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-          <Typography sx={{ mb: 1.5 }}>暂无记录，从这里开始记录你的第一条信息</Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            快速记录
-          </Button>
-        </Box>
+        <EmptyState
+          title="还没有记录"
+          description="从这里开始记录你的第一条信息。想法、资料、待办都可以先收进来，之后再整理。"
+          action={
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+              快速记录
+            </Button>
+          }
+        />
       ) : (
         <>
           {/* 分区方案下主区只占 2/3 宽，列数同步收一档，避免卡片被压成窄条 */}
           <Grid container spacing={2}>
-            {records.map((r) => (
-              <Grid item xs={12} sm={6} md={zoned ? 6 : 4} lg={zoned ? 4 : 3} key={r.id}>
+            {records.map((r, index) => (
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={zoned ? 6 : 4}
+                lg={zoned ? 4 : 3}
+                key={r.id}
+                className="stagger-item"
+                style={staggerStyle(index)}
+              >
                 <RecordCard record={r} onClick={() => setDetail(r)} />
               </Grid>
             ))}
