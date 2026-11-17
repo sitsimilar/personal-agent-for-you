@@ -32,5 +32,9 @@ nsis:
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   installerHeaderIcon: build/icon.ico
+  # 补写安装包模板不写的元数据（InstallLocation / InstallDate / DisplayIcon /
+  # App Paths）。缺这些会导致「设置 → 应用」与第三方软件管理器定位不到程序，
+  # 表现为「装完系统检测不到」。详见 build/installer.nsh 的注释。
+  include: build/installer.nsh
   # 卸载时保留 userData（用户数据不被误删，由「一键删除」功能显式清理）
   deleteAppDataOnUninstall: false
