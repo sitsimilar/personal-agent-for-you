@@ -48,6 +48,33 @@ export function isNativeShell(): boolean {
   }
 }
 
+/**
+ * 当前页面能否承接网页 OAuth 回调（微信扫码 / WorkBuddy 账号登录）。
+ *
+ * 判断依据是**页面源站**而不是「是否原生壳」：
+ * - 联网模式 APK（`server.url` 指线上域名）里 `location.origin` 就是已注册域名，
+ *   Relay 可以把用户重定向回来，回调由 `handleWechatWebCallback()` 消费；
+ * - 离线模式壳 / 本地 dev（`https://localhost`、`http://127.0.0.1`）不行：
+ *   微信开放平台不可能把用户跳到 localhost，跳过去只会白屏。
+ *
+ * 注意：能回调 ≠ 体验好。手机端微信只提供「网站应用扫码」页（qrconnect），
+ * 同一个手机扫不了自己屏幕上的码，必须用另一台设备扫。
+ */
+export function canReceiveWebOAuthCallback(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return isCallbackCapableOrigin(window.location.origin)
+  } catch {
+    return false
+  }
+}
+
+/** 纯判定：给定源站能否承接网页 OAuth 回调（无 DOM 依赖，便于单测）。 */
+export function isCallbackCapableOrigin(origin: string): boolean {
+  if (!/^https:\/\//i.test(origin)) return false
+  return !/^https:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin)
+}
+
 /** 是否跑在 Electron 桌面端（主窗口或悬浮窗）。 */
 export function isDesktopShell(): boolean {
   if (typeof window === 'undefined') return false

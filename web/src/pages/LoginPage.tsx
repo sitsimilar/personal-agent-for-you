@@ -17,7 +17,7 @@ import { authService, PendingPhoneOtp } from '@/services/authService'
 import { useAuthStore } from '@/store/authStore'
 import { consumeRedirect } from '@/services/authExpired'
 import { friendlyError } from '@/lib/unwrap'
-import { isNativeShell } from '@/lib/platform'
+import { isNativeShell, canReceiveWebOAuthCallback } from '@/lib/platform'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -31,8 +31,9 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  // 原生壳（Android APK）里 OAuth 回跳地址不可用，见下方按钮处的说明
+  // 原生壳里能否走微信登录，取决于页面源站能否承接 OAuth 回调（见 canReceiveWebOAuthCallback）
   const nativeShell = isNativeShell()
+  const webOAuth = canReceiveWebOAuthCallback()
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -180,19 +181,27 @@ export default function LoginPage() {
             <Divider>或</Divider>
 
             {/*
-              Android 原生壳里**不提供微信扫码登录**：OAuth 的回跳地址是
-              `window.location.origin`，在 Capacitor 里等于 `https://localhost`，
-              微信开放平台不可能把用户重定向回这个地址，点了只会白屏。
-              手机号验证码登录在两种环境下走的是同一条链路，能力不打折。
+              微信登录走云端 Relay 的「网站应用扫码」页（open.weixin.qq.com/connect/qrconnect）。
+              能不能用只看页面源站能否承接回调（`canReceiveWebOAuthCallback`）：
+              - 联网模式 APK：源站就是已注册域名，扫码后回调落在同一个 WebView 里，可直接登录；
+              - 离线壳 / 本地 dev：源站是 https://localhost，微信不可能跳回来，不提供入口。
+              手机端的限制是「同一台设备扫不了自己屏幕上的码」，必须用另一台设备扫。
             */}
-            {nativeShell ? (
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                安卓 App 内请使用手机号验证码登录（微信扫码需回到网页版或桌面端）
-              </Typography>
+            {webOAuth ? (
+              <>
+                <Button variant="outlined" size="large" onClick={wechatLogin}>
+                  微信扫码登录
+                </Button>
+                {nativeShell && (
+                  <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                    手机端需用另一台设备扫码；没有第二台设备时请用上面的手机号验证码
+                  </Typography>
+                )}
+              </>
             ) : (
-              <Button variant="outlined" size="large" onClick={wechatLogin}>
-                微信扫码登录
-              </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                当前环境无法承接微信回调（离线壳/本地调试），请使用手机号验证码登录
+              </Typography>
             )}
 
             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>

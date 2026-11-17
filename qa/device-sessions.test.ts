@@ -19,6 +19,7 @@ import {
   buildDeviceLabel,
   createDeviceId,
   detectPlatformFrom,
+  isCallbackCapableOrigin,
   platformName,
   readOsName,
   DEVICE_ID_KEY,
@@ -257,21 +258,46 @@ test('原生壳通知可达性单独一档（WebView 不发系统通知）', () 
   assert.match(src, /WebView 不提供系统通知能力/)
 })
 
-test('安卓壳内隐藏微信扫码登录（OAuth 无法回跳 https://localhost）', () => {
+test('微信登录入口由「源站能否承接回调」决定（联网壳可用、离线壳隐藏）', () => {
   const src = read('web/src/pages/LoginPage.tsx')
-  assert.match(src, /isNativeShell\(\)/)
-  assert.match(src, /nativeShell \? \(/)
-  assert.match(src, /请使用手机号验证码登录/)
+  // 判断依据是源站判定，不再单看 isNativeShell（联网模式壳的源站就是线上域名）
+  assert.match(src, /canReceiveWebOAuthCallback\(\)/)
+  assert.match(src, /webOAuth \? \(/)
+  assert.ok(!/nativeShell \? \(/.test(src), '不应再用 nativeShell 单一条件决定是否给入口')
+  // 离线壳/本地调试仍需给出替代方案的文案
+  assert.match(src, /当前环境无法承接微信回调/)
+  // 手机端要说明「需另一台设备扫码」，否则用户会以为点不动
+  assert.match(src, /需用另一台设备扫码/)
+})
+
+test('isCallbackCapableOrigin：只有可注册的 https 域名才算能承接回调', () => {
+  assert.equal(isCallbackCapableOrigin('https://personal-agent-08495.app.workbuddy.link'), true)
+  assert.equal(isCallbackCapableOrigin('https://app.example.com'), true)
+  assert.equal(isCallbackCapableOrigin('https://localhost'), false)
+  assert.equal(isCallbackCapableOrigin('https://localhost:5173'), false)
+  assert.equal(isCallbackCapableOrigin('https://127.0.0.1'), false)
+  assert.equal(isCallbackCapableOrigin('https://[::1]:3000'), false)
+  assert.equal(isCallbackCapableOrigin('http://app.example.com'), false)
+  assert.equal(isCallbackCapableOrigin(''), false)
 })
 
 /* --------------------------- 6. Android 工程配置 --------------------------- */
 
-test('capacitor.config.ts：本地打包 + https 源站（保证 crypto.subtle 可用）', () => {
+test('capacitor.config.ts：联网模式 server.url 指 https 线上域名（源站可承接 OAuth）', () => {
   const src = read('mobile/capacitor.config.ts')
   assert.match(src, /appId: 'com\.personalagent\.mobile'/)
+  // 保留本地 webDir 作为兜底（切回离线模式时 cap sync 仍可用）
   assert.match(src, /webDir: '\.\.\/web\/dist'/)
   assert.match(src, /androidScheme: 'https'/)
-  assert.ok(!/server:\s*\{[^}]*url:/.test(src), '不允许退化成远程 server.url（登录源站会变）')
+  assert.match(src, /url: WEB_URL/, '联网模式必须显式给 server.url')
+  assert.match(src, /PA_WEB_URL/, '允许用环境变量覆盖域名，避免每次改代码')
+  // 默认地址必须是 https 的线上域名，且不能是已失效的 Trae 发布位
+  const m = /process\.env\.PA_WEB_URL \?\? '([^']+)'/.exec(src)
+  assert.ok(m, '找不到 WEB_URL 默认值')
+  assert.match(m![1], /^https:\/\/[a-z0-9.-]+\.workbuddy\.link/i, '默认值必须是 workbuddy 发布位')
+  assert.ok(!/traesite/.test(m![1]), 'Trae 发布位已失效（307 跳登录页），不得再用')
+  // 明文流量必须关：https 源站是 crypto.subtle / SW / OAuth 的前提
+  assert.match(src, /cleartext: false/)
 })
 
 test('AndroidManifest：联网权限在、明文流量关、备份关', () => {
