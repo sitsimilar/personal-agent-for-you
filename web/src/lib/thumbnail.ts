@@ -20,7 +20,7 @@ export function computeThumbnailSize(
 }
 
 /** 用 Canvas 生成缩略图（保持原格式，PNG 保留透明；透明通道需画布未污染）。 */
-export async function generateThumbnail(file: File, target: number): Promise<Blob> {
+export async function generateThumbnail(file: File | Blob, target: number): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   try {
     const { w, h } = computeThumbnailSize(bitmap.width, bitmap.height, target)

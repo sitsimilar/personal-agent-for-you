@@ -402,6 +402,23 @@ function toSnake(input: RecordUpdateInput): Record<string, unknown> {
   return fields
 }
 
+/**
+ * 写完「带提醒」的记录后，主动补跑一轮提醒调度。
+ *
+ * 背景（2026-11-18 节流改造）：`reminderService` 从固定 30s 轮询改成
+ * 「有候选 60s / 无候选退避 5 分钟」。退避状态下新插入的提醒最多要等 5 分钟才被查到，
+ * 这里主动戳一次把这个延迟抹平。
+ *
+ * 用动态 import 是为了避开循环依赖：`reminderService` 顶部就 import 了本模块。
+ */
+function pokeReminder(): void {
+  void import('./reminderService')
+    .then((m) => m.kick())
+    .catch(() => {
+      /* 提醒调度失败不影响写入结果 */
+    })
+}
+
 export const recordService = {
   /** 新建记录（owner_id 由数据库 DEFAULT auth.uid() 填充，前端不发送）。 */
   async createRecord(input: RecordCreateInput): Promise<InfoRecord> {
@@ -427,7 +444,11 @@ export const recordService = {
         ...(input.parentId !== undefined ? { parent_id: input.parentId } : {}),
       })
       .select()
-    return mapRecord(unwrapRows({ data, error })[0])
+    const created = mapRecord(unwrapRows({ data, error })[0])
+    // 带提醒的新记录：立刻补跑一轮调度。调度器改成「无候选退避 5 分钟」后，
+    // 不主动戳一下的话，刚设的提醒最多要等 5 分钟才被查到。
+    if (created.remindAt) pokeReminder()
+    return created
   },
 
   /** 分页列表（支持类型/分类/关键词/回收站筛选）。 */
@@ -587,6 +608,8 @@ export const recordService = {
       .eq('id', id)
       .select()
     const updated = mapRecord(unwrapRows({ data, error })[0])
+    // 动了提醒时间（含清空）→ 立刻重算一次，别等退避周期
+    if (input.remindAt !== undefined) pokeReminder()
     // v2.13 R4：改了提醒时间 = 新一轮提醒，复位 snooze 状态
     // （仅在确有 snooze 状态时才发请求，避免给常规编辑路径增加无谓写入）
     if (input.remindAt !== undefined && hasSnoozeState(updated)) {

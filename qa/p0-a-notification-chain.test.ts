@@ -112,10 +112,11 @@ test('设置页：提醒卡片含总开关 / 提前量枚举 / 免打扰起止�
   assert.match(settings, /requestPermission\(\)/, '首次开启总开关时请求权限（Web）')
 })
 
-test('调度器常量：30s 轮询（满足免打扰补发 08:00–08:05 精度）', () => {
+test('调度器常量：有候选 60s / 无候选退避 5 分钟（原固定 30s 太耗云资源点）', () => {
   const service = src('web/src/services/reminderService.ts')
 
-  assert.match(service, /const TICK_MS = 30_000/)
-  assert.match(service, /if \(!settings\.notifyEnabled\) return/, '总开关关闭必须短路（A6）')
+  assert.match(service, /export const ACTIVE_TICK_MS = 60_000/)
+  assert.match(service, /export const IDLE_TICK_MS = 5 \* 60_000/)
+  assert.match(service, /if \(!settings\.notifyEnabled\) return false/, '总开关关闭必须短路（A6）')
   assert.match(service, /if \(decision\.action === 'defer'\) return/, '免打扰：不写键、等下个周期补发（A5）')
 })

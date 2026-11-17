@@ -19,8 +19,15 @@ import { deviceRegistry } from './deviceRegistry'
 import { useAuthStore } from '@/store/authStore'
 import { pushNotice } from '@/store/noticeStore'
 
-/** 心跳周期（毫秒）。配合 `HEARTBEAT_MIN_INTERVAL_MS` 节流，实际写入 ≤1 次/分钟。 */
-export const GUARD_TICK_MS = 60_000
+/**
+ * 心跳周期（毫秒）。配合 `HEARTBEAT_MIN_INTERVAL_MS` 节流，实际写入 ≤1 次/2 分钟。
+ *
+ * 2026-11-18：由 60s 放宽到 120s。心跳是一次 `devices` 表的 update，
+ * 按「服务调用次数 + 数据库 CPU」计费；挂 8 小时从 480 次降到 240 次。
+ * 代价只是「在线」判定的更新变慢——`ONLINE_WINDOW_MS` 是 5 分钟，
+ * 2 分钟一次仍有 2.5 倍余量，不会把在线设备误判成离线。
+ */
+export const GUARD_TICK_MS = 120_000
 
 let disposers: Array<() => void> = []
 

@@ -10,6 +10,7 @@ import { unwrap } from '@/lib/unwrap'
 import type { ImagesRow } from '@/lib/database.types'
 import { authService } from './authService'
 import { generateThumbnail } from '@/lib/thumbnail'
+import { compressImageForUpload, extOfName } from '@/lib/image-compress'
 
 /** 允许的图片扩展名。 */
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']
@@ -34,12 +35,6 @@ export function formatImageId(id: number): string {
   return String(id).padStart(9, '0')
 }
 
-function extOf(fileName: string): string {
-  const idx = fileName.lastIndexOf('.')
-  const ext = idx === -1 ? '' : fileName.slice(idx + 1).toLowerCase()
-  return ext === 'jpeg' ? 'jpg' : ext
-}
-
 function buildKey(ownerId: string, id: number, suffix: string, ext: string): string {
   return cloud.storage.userPath(ownerId, `images/${formatImageId(id)}/${suffix}.${ext}`)
 }
@@ -49,7 +44,7 @@ export const imageService = {
   async uploadImage(file: File, name: string): Promise<ImagesRow> {
     const nameErr = validateImageName(name)
     if (nameErr) throw new Error(nameErr)
-    const ext = extOf(file.name)
+    const ext = extOfName(file.name)
     if (!IMAGE_EXTENSIONS.includes(ext)) throw new Error('仅支持 JPEG/PNG/WebP 格式')
     if (file.size > MAX_IMAGE_SIZE) throw new Error('图片大小不能超过 10MB')
 
@@ -57,12 +52,21 @@ export const imageService = {
     const ownerId = session?.user?.id
     if (!ownerId) throw new Error('请先登录')
 
+    /**
+     * 上传前压缩（最长边 1280 / JPEG 0.82）。
+     * 只在「真的变小了」时替换，压缩失败自动退回原图——见 `lib/image-compress`。
+     */
+    const prepared = await compressImageForUpload(file)
+    const uploadBody = prepared.blob
+    const mime = prepared.mime
+    const uploadExt = prepared.ext
+
     // 1. 写库占位（owner_id 由后端 DEFAULT auth.uid() 填充），获得自增 id
     const ins = unwrap(
       await cloud.database.from('images').insert({
         name: name.trim(),
-        mime_type: file.type || 'image/jpeg',
-        size: file.size,
+        mime_type: mime,
+        size: uploadBody.size,
       }).select(),
     ) as ImagesRow[] | null
     if (!ins || ins.length === 0) throw new Error('创建图片记录失败')
@@ -70,15 +74,15 @@ export const imageService = {
 
     const uploadedPaths: string[] = []
     try {
-      // 2. 生成三档缩略图 + 上传原图与缩略图
-      const thumbs = await Promise.all(THUMB_SIZES.map((s) => generateThumbnail(file, s)))
+      // 2. 生成三档缩略图 + 上传原图与缩略图（都用压缩后的数据，省流量与容量）
+      const thumbs = await Promise.all(THUMB_SIZES.map((s) => generateThumbnail(uploadBody, s)))
       const paths = {
-        original: buildKey(ownerId, id, 'original', ext),
-        t128: buildKey(ownerId, id, 'thumb_128', ext),
-        t256: buildKey(ownerId, id, 'thumb_256', ext),
-        t512: buildKey(ownerId, id, 'thumb_512', ext),
+        original: buildKey(ownerId, id, 'original', uploadExt),
+        t128: buildKey(ownerId, id, 'thumb_128', uploadExt),
+        t256: buildKey(ownerId, id, 'thumb_256', uploadExt),
+        t512: buildKey(ownerId, id, 'thumb_512', uploadExt),
       }
-      unwrap(await cloud.storage.upload(paths.original, file, { contentType: file.type || 'application/octet-stream' }))
+      unwrap(await cloud.storage.upload(paths.original, uploadBody, { contentType: mime }))
       uploadedPaths.push(paths.original)
       for (let i = 0; i < thumbs.length; i++) {
         const p = [paths.t128, paths.t256, paths.t512][i]

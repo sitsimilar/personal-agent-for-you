@@ -28,7 +28,7 @@ import UpdateDialog from '@/components/UpdateDialog'
 import { checkForUpdate, currentVersion, type CheckResult } from '@/services/updateService'
 import { imageService } from '@/services/imageService'
 import { profileService, validateNickname, formatAccountId } from '@/services/profileService'
-import { reminderService } from '@/services/reminderService'
+import { reminderService, isPollEnabled, setPollEnabled } from '@/services/reminderService'
 import { pushNotice } from '@/store/noticeStore'
 import { useProfileStore } from '@/store/profileStore'
 import PageShell from '@/components/PageShell'
@@ -79,6 +79,8 @@ export default function SettingsPage() {
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(false)
   const [quietStart, setQuietStart] = useState('22:00')
   const [quietEnd, setQuietEnd] = useState('08:00')
+  // 后台提醒轮询开关：本机偏好（localStorage），关掉后完全不查云端库
+  const [pollEnabled, setPollEnabledState] = useState(() => isPollEnabled())
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -484,6 +486,26 @@ export default function SettingsPage() {
                 />
               }
               label="到点弹系统通知（关闭后列表仍显示提醒时间）"
+            />
+
+            {/*
+              后台轮询是「服务调用次数 + 数据库 CPU」的持续消耗：
+              原来固定 30s 查一次库，挂 8 小时 = 960 次。现已改为
+              「有候选 60s / 无候选 5 分钟」，这里再给一个总闸。
+            */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={pollEnabled}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                    setPollEnabledState(next)
+                    setPollEnabled(next)
+                    pushNotice(next ? '已开启后台提醒轮询' : '已关闭后台提醒轮询（打开应用时仍会补查一次）', 'info')
+                  }}
+                />
+              }
+              label="后台提醒轮询（关闭可省云资源点，期间不主动查提醒）"
             />
 
             <FormControl size="small" sx={{ maxWidth: 260 }} disabled={loading || !notifyEnabled}>

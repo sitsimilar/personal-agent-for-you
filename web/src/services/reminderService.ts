@@ -37,8 +37,21 @@ import { profileService } from '@/services/profileService'
 import { runFeedTickIfDue } from '@/services/feedService'
 import type { InfoRecord, Priority } from '@shared/types/domain'
 
-/** 轮询周期：30s（满足 A5「08:00–08:05 内补发」的 ±60s 精度要求）。 */
-const TICK_MS = 30_000
+/**
+ * 有候选待办时的轮询周期：60s（满足「到点后 ±60s 内弹」）。
+ *
+ * 原来固定 30s：只要通知开关打开，**每 30 秒就对云端查一次 records**，
+ * 用户什么都不做，一天挂 8 小时也要 960 次查询——而这属于「服务调用次数 + 数据库 CPU」
+ * 两项计费。现在改为「有候选 60s / 无候选退避 5 分钟」。
+ */
+export const ACTIVE_TICK_MS = 60_000
+/** 上一轮没有候选时的退避周期：多数时间没有待办提醒，没必要高频查库。 */
+export const IDLE_TICK_MS = 5 * 60_000
+/**
+ * 后台轮询开关（本机偏好，存 localStorage，不动云端 settings）。
+ * 关掉后完全不查库、不弹提醒，但手动打开应用时仍会补一次（可见性变化触发）。
+ */
+export const POLL_ENABLED_KEY = 'pa.reminder.poll.enabled'
 /** settings 缓存有效期（保存设置时显式失效）。 */
 const SETTINGS_TTL_MS = 5 * 60 * 1000
 /** 去重存储键。 */
@@ -71,6 +84,8 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 const PRIORITY_LABEL: Record<Priority, string> = { high: '高优先级', medium: '中优先级', low: '低优先级' }
 
 let tickTimer: number | null = null
+/** 上一轮是否查到候选：决定下一轮的间隔（有候选 60s / 无候选 5 分钟）。 */
+let lastTickHadCandidates = false
 let ticking = false
 let settingsCache: { value: ReminderSettings; ts: number } | null = null
 /** 内存已弹集合（同一进程内的快速兜底）。 */
@@ -292,16 +307,16 @@ function scheduleFeedTick(): void {
  * 立即执行一次调度（启动 / 可见性变化 / 设置保存后 / 定时器）。
  * 并发保护：上一轮未结束时直接跳过。
  */
-export async function tickNow(): Promise<void> {
-  if (typeof window === 'undefined') return
-  if (ticking) return
+export async function tickNow(): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  if (ticking) return false
   ticking = true
   try {
     // 订阅抓取先挂到下一个宏任务（非阻塞、不插队），详见 scheduleFeedTick 注释
     scheduleFeedTick()
     const settings = await getReminderSettings()
     // 总开关关闭：不发通知，也不写去重键（重开后 12h 内仍可补发）
-    if (!settings.notifyEnabled) return
+    if (!settings.notifyEnabled) return false
 
     probePermissionOnce()
 
@@ -311,14 +326,16 @@ export async function tickNow(): Promise<void> {
     const toIso = new Date(nowMs + leadMs + 60_000).toISOString()
 
     const candidates = await recordService.listReminderCandidates(fromIso, toIso)
-    if (candidates.length === 0) return
+    if (candidates.length === 0) return false
 
     const provider = getNotificationProvider()
     for (const record of candidates) {
       await handleCandidate(record, settings, provider, nowMs)
     }
+    return true
   } catch {
     /* 调度异常静默，下一 tick 自动重试 */
+    return false
   } finally {
     ticking = false
   }
@@ -353,22 +370,72 @@ export async function requestNotificationPermission(): Promise<'granted' | 'deni
   }
 }
 
-/** 启动调度器（幂等）。 */
+/** 读后台轮询开关（默认开；存储异常按开处理，宁可多查一次也别漏提醒）。 */
+export function isPollEnabled(): boolean {
+  try {
+    const raw = window.localStorage.getItem(POLL_ENABLED_KEY)
+    return raw === null ? true : raw === '1'
+  } catch {
+    return true
+  }
+}
+
+/**
+ * 开关后台轮询。关闭=立即停表并解绑可见性监听，之后不再查库；
+ * 重新打开会立刻补跑一次（把关闭期间错过的提醒补上）。
+ */
+export function setPollEnabled(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(POLL_ENABLED_KEY, enabled ? '1' : '0')
+  } catch {
+    /* 存储不可用时只影响持久化，内存态仍按本次设置走 */
+  }
+  if (enabled) start()
+  else stop()
+}
+
+/** 安排下一轮（自调度，间隔随上一轮结果变化）。 */
+function scheduleNext(delay: number): void {
+  if (typeof window === 'undefined') return
+  if (tickTimer !== null) window.clearTimeout(tickTimer)
+  tickTimer = window.setTimeout(() => {
+    tickTimer = null
+    void tickLoop()
+  }, delay)
+}
+
+/** 一轮调度：跑完按「有没有候选」决定下一轮间隔。 */
+async function tickLoop(): Promise<void> {
+  lastTickHadCandidates = await tickNow()
+  if (tickTimer !== null) return // stop() 在等待期间被调用
+  scheduleNext(lastTickHadCandidates ? ACTIVE_TICK_MS : IDLE_TICK_MS)
+}
+
+/** 立刻补跑一轮（新建/修改带提醒的记录后调用，避免等下一个退避周期）。 */
+export function kick(): void {
+  if (typeof window === 'undefined') return
+  if (!isPollEnabled()) return
+  if (tickTimer !== null) {
+    window.clearTimeout(tickTimer)
+    tickTimer = null
+  }
+  void tickLoop()
+}
+
+/** 启动调度器（幂等）。轮询开关关闭时不启动。 */
 export function start(): void {
   if (typeof window === 'undefined') return
+  if (!isPollEnabled()) return
   bindVisibility()
   if (tickTimer !== null) return
-  void tickNow()
-  tickTimer = window.setInterval(() => {
-    void tickNow()
-  }, TICK_MS)
+  void tickLoop()
 }
 
 /** 停止调度器（幂等）。 */
 export function stop(): void {
   unbindVisibility()
   if (tickTimer === null) return
-  window.clearInterval(tickTimer)
+  window.clearTimeout(tickTimer)
   tickTimer = null
 }
 
