@@ -18,6 +18,17 @@ import { useAuthStore } from '@/store/authStore'
 import { consumeRedirect } from '@/services/authExpired'
 import { friendlyError } from '@/lib/unwrap'
 import { isNativeShell, canReceiveWebOAuthCallback } from '@/lib/platform'
+import {
+  applySend,
+  applyVerifyFailure,
+  applyVerifySuccess,
+  evaluateSend,
+  evaluateVerify,
+  formatWait,
+  OTP_MAX_PER_DAY,
+  readOtpGuard,
+  writeOtpGuard,
+} from '@/lib/otp-guard'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -53,9 +64,24 @@ export default function LoginPage() {
     }
     setPhoneError('')
     setError('')
+    // 频控兜底：同号 60s 冷却、24h 上限 10 条、输错锁定（详见 lib/otp-guard）
+    const guard = readOtpGuard(window.localStorage)
+    const verdict = evaluateSend(guard, phone, Date.now())
+    if (!verdict.allowed) {
+      const wait = formatWait(verdict.retryAfterMs ?? 0)
+      setError(
+        verdict.reason === 'daily'
+          ? `该手机号 24 小时内已获取 ${OTP_MAX_PER_DAY} 条验证码，请 ${wait}后再试`
+          : verdict.reason === 'locked'
+            ? `验证码错误次数过多，请 ${wait}后再试`
+            : `请 ${wait}后再获取验证码`,
+      )
+      return
+    }
     setSending(true)
     try {
       const p = await authService.sendPhoneCode(phone)
+      writeOtpGuard(window.localStorage, applySend(guard, phone, Date.now()))
       setPending(p)
       setCountdown(60)
     } catch (err) {
@@ -74,13 +100,22 @@ export default function LoginPage() {
       setError('请输入验证码')
       return
     }
+    const guard = readOtpGuard(window.localStorage)
+    const gate = evaluateVerify(guard, phone, Date.now())
+    if (!gate.allowed) {
+      setError(`验证码错误次数过多，请 ${formatWait(gate.retryAfterMs ?? 0)}后再试`)
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
       const session: CloudSession = await authService.submitPhoneLogin(pending, code.trim())
+      writeOtpGuard(window.localStorage, applyVerifySuccess(guard, phone))
       setSession(session)
       // 跳转统一由「session 变化」的 effect 处理，避免与跨窗口同步重复导航
     } catch (err) {
+      // 输错累计到 5 次锁 15 分钟，防止穷举 6 位码
+      writeOtpGuard(window.localStorage, applyVerifyFailure(guard, phone, Date.now()))
       setError(friendlyError(err))
     } finally {
       setSubmitting(false)

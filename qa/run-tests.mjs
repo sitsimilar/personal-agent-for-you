@@ -147,6 +147,7 @@ const targets = [
   { entry: 'qa/apk-installability.test.ts', out: 'qa/dist/apk-installability.test.cjs', alias: {} },
   // v2.15：Android APK + 多端同时在线（设备注册表 / 会话守护 / 壳工程配置）
   { entry: 'qa/device-sessions.test.ts', out: 'qa/dist/device-sessions.test.cjs', alias: webAlias },
+  { entry: 'qa/otp-guard.test.ts', out: 'qa/dist/otp-guard.test.cjs', alias: webAlias },
 ]
 
 // 云服务配置已参数化为 import.meta.env.VITE_*；测试环境无 Vite 注入，
